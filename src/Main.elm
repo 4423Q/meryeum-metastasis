@@ -4,6 +4,8 @@ import Browser
 import Html exposing (Html, div, text)
 import Random
 import Student
+import Util
+import Weapon
 
 
 main =
@@ -35,7 +37,7 @@ update msg model =
             ( Stdt x, Cmd.none )
 
 
-viewStats { fight, hot, sharp, extra } =
+viewStats { danger, hot, sharp, extra } =
     let
         mapper =
             \( x, y ) -> div [] [ text (x ++ String.fromInt y) ]
@@ -43,7 +45,7 @@ viewStats { fight, hot, sharp, extra } =
     div []
         (List.map
             mapper
-            [ ( "fight - ", fight )
+            [ ( "dangerous - ", danger )
             , ( "hot - ", hot )
             , ( "sharp - ", sharp )
             , ( "extra - ", extra )
@@ -58,10 +60,25 @@ view y =
             let
                 stats =
                     Student.getStats x
+
+                prons =
+                    Student.getPronouns x
+
+                weptext =
+                    case Student.getWeapon x of
+                        Weapon.Pilot machine ->
+                            Util.ana machine ++ " " ++ machine ++ " pilot"
+
+                        Weapon.Soldier ->
+                            "some kinda soldier"
+
+                        Weapon.Weapon wep ->
+                            "a person who is also " ++ Util.ana wep ++ " " ++ wep
             in
             div []
-                [ div [] [ text ("Name: " ++ Student.getName x) ]
+                [ div [] [ text ("Name: " ++ Student.getName x ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
                 , viewStats stats
+                , div [] [ text (Student.getName x ++ " is " ++ weptext) ]
                 ]
 
         _ ->

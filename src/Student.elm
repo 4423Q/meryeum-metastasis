@@ -1,16 +1,48 @@
-module Student exposing (Student, StudentBody(..), getName, getNumber, getStats, newStudent)
+module Student exposing (Student, StudentBody(..), getName, getNumber, getPronouns, getStats, getWeapon, newStudent)
 
+import Array
 import Basics exposing (round)
 import Dict exposing (Dict)
 import Name
 import Random exposing (Generator)
 import Random.Float
+import Weapon exposing (WeaponType, newWepType, weapons)
 
 
-type WeaponType
-    = Weapon String
-    | Pilot String
-    | Soldier String
+
+-- They/Them/Their
+
+
+type Pronoun
+    = Pronoun String String String
+
+
+pronounsList =
+    [ ( 30, Pronoun "they" "them" "their" )
+    , ( 30, Pronoun "he" "him" "his" )
+    , ( 30, Pronoun "she" "her" "hers" )
+    , ( 10, Pronoun "ze" "zir" "zirs" )
+    , ( 10, Pronoun "ze" "hir" "hirs" )
+    ]
+
+
+newProns : Generator Pronoun
+newProns =
+    Random.weighted
+        (case List.head pronounsList of
+            Just x ->
+                x
+
+            Nothing ->
+                ( 30, Pronoun "they" "them" "their" )
+        )
+        (case List.tail pronounsList of
+            Just x ->
+                x
+
+            Nothing ->
+                []
+        )
 
 
 type Bond
@@ -39,7 +71,7 @@ newStat =
 
 type alias VisibleStats =
     { sharp : Stat
-    , fight : Stat
+    , danger : Stat
     , hot : Stat
     , extra : Stat
     }
@@ -47,7 +79,7 @@ type alias VisibleStats =
 
 newVisibleStats =
     Random.map4
-        (\a b c d -> { sharp = a, fight = b, hot = c, extra = d })
+        (\a b c d -> { sharp = a, danger = b, hot = c, extra = d })
         newStat
         newStat
         newStat
@@ -55,13 +87,27 @@ newVisibleStats =
 
 
 type alias InvisibleStats =
-    {}
+    { horny : Stat
+    , angry : Stat
+    , ambition : Stat
+    , diversion : Stat
+    }
+
+
+newInvisibleStats =
+    Random.map4
+        (\a b c d -> { horny = a, angry = b, ambition = c, diversion = d })
+        newStat
+        newStat
+        newStat
+        newStat
 
 
 type Student
     = Student
         { num : Int
         , name : Name.Name
+        , pronouns : Pronoun
         , weapontype : WeaponType
         , visible : VisibleStats
         , invisible : InvisibleStats
@@ -85,22 +131,38 @@ getNumber (Student std) =
     std.num
 
 
+getPronouns : Student -> { subj : String, obj : String, pos : String }
+getPronouns (Student { pronouns }) =
+    case pronouns of
+        Pronoun a b c ->
+            { subj = a, obj = b, pos = c }
+
+
+getWeapon : Student -> WeaponType
+getWeapon (Student { weapontype }) =
+    weapontype
+
+
 newStudent : StudentBody -> Generator Student
 newStudent (StudentBody _ lastNum) =
-    Random.map2
-        (\vs name ->
+    Random.map5
+        (\vs is name pro wep ->
             Student
                 { num = lastNum + 1
                 , name = name
-                , weapontype = Pilot "Dog"
+                , pronouns = pro
+                , weapontype = wep
                 , visible = vs
-                , invisible = {}
+                , invisible = is
                 , bonds = Dict.empty
                 , value = 0
                 }
         )
         newVisibleStats
+        newInvisibleStats
         Name.newName
+        newProns
+        newWepType
 
 
 
