@@ -30,6 +30,7 @@ namesArray =
         , "Blake"
         , "Borges"
         , "Bridge"
+        , "Bravo"
         , "Brink"
         , "Calamity"
         , "Calibre"
@@ -185,6 +186,7 @@ namesArray =
         , "X"
         , "Xi"
         , "Xiao"
+        , "Zhou"
         , "Yang"
         , "Yubi"
         , "k"
@@ -212,6 +214,45 @@ type Name
         , family : Int
         , given : Int
         }
+
+
+coalesce : List String -> List Connector -> ( List String, List Connector )
+coalesce names separators =
+    case List.length names of
+        0 ->
+            ( [], [] )
+
+        _ ->
+            case names of
+                topName :: bottomNames ->
+                    case separators of
+                        topSep :: bottomSeps ->
+                            let
+                                ( newNames, newSeps ) =
+                                    coalesce bottomNames bottomSeps
+                            in
+                            case topSep of
+                                Breaking y ->
+                                    case newNames of
+                                        z :: zs ->
+                                            ( topName :: String.trim (y ++ z) :: zs, bottomSeps )
+
+                                        _ ->
+                                            ( topName :: newNames, bottomSeps )
+
+                                NonBreaking y ->
+                                    case newNames of
+                                        z :: zs ->
+                                            ( (topName ++ y ++ z) :: zs, bottomSeps )
+
+                                        zs ->
+                                            ( topName :: zs, bottomSeps )
+
+                        _ ->
+                            ( names, [] )
+
+                _ ->
+                    ( [], [] )
 
 
 toString : Name -> String
@@ -312,7 +353,7 @@ newName =
             else
                 round n
         )
-        (Random.Float.normal 2.2 0.6)
+        (Random.Float.normal 2.3 0.6)
         |> Random.andThen (\len -> Random.list len getNameFromList)
         |> Random.andThen
             (\xs ->

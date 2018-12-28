@@ -11,7 +11,7 @@ weapons =
         , "Revolver"
         , "Sniper Rifle"
         , "Machine Gun"
-        , "Sword"
+        , "Longsword"
         , "Spear"
         , "Mace"
         , "Axe"
@@ -19,6 +19,22 @@ weapons =
         , "Orbital Cannon"
         , "Knife"
         , "Chakram"
+        , "Katar"
+        , "Iron Fan"
+        , "Cutlass"
+        , "Sabre"
+        , "Halberd"
+        , "Greatsword"
+        , "Sickle"
+        , "Baton"
+        , "Lance"
+        , "Trident"
+        , "Pike"
+        , "Voulge"
+        , "Longbow"
+        , "Crossbow"
+        , "Arbalest"
+        , "Chain Whip"
         , "Pair of Brass Knuckles"
         , "Regular Everyday Kind of Person Don't Even Worry About It"
         ]
@@ -37,6 +53,9 @@ type WeaponType
     = Weapon String
     | Pilot String
     | Soldier
+    | Commander
+    | Tactician
+    | Special
 
 
 newWepType : Generator WeaponType
@@ -49,6 +68,8 @@ newWepType =
                 weapons
             )
             [ Random.constant Soldier
+            , Random.constant Commander
+            , Random.constant Tactician
             , Util.genUniformFromArray
                 Pilot
                 "ERROR"

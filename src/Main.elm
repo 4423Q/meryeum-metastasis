@@ -75,6 +75,15 @@ renderStudent x =
                 Weapon.Soldier ->
                     "some kinda soldier"
 
+                Weapon.Commander ->
+                    "a Future Commander"
+
+                Weapon.Tactician ->
+                    "a Tactician in Training"
+
+                Weapon.Special ->
+                    "something special !!!"
+
                 Weapon.Weapon wep ->
                     "a person who is also " ++ Util.ana wep ++ " " ++ wep
     in

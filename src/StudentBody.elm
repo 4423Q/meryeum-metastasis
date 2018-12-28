@@ -1,4 +1,4 @@
-module StudentBody exposing (StudentBody, addStudent, addStudents, asList, empty, getNum)
+module StudentBody exposing (StudentBody, addStudent, addStudents, asList, empty, getNum, getStudentById)
 
 import Random exposing (Generator)
 import Student exposing (newStudent)
@@ -29,6 +29,27 @@ getNum sBody =
 empty : StudentBody
 empty =
     StudentBody [] 0
+
+
+getStudentById : StudentBody -> Int -> Maybe Student.Student
+getStudentById body id =
+    case body of
+        StudentBody x _ ->
+            x |> List.filter (\y -> Student.getNumber y == id) |> List.head
+
+
+updateStudentById : (Student.Student -> Student.Student) -> StudentBody -> Int -> Maybe StudentBody
+updateStudentById updateFunc body id =
+    case body of
+        StudentBody x num ->
+            case
+                getStudentById body id
+            of
+                Just student ->
+                    Just (StudentBody (updateFunc student :: List.filter (\y -> Student.getNumber y /= id) x) num)
+
+                Nothing ->
+                    Nothing
 
 
 addStudent : StudentBody -> Generator StudentBody
