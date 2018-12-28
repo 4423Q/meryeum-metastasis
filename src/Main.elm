@@ -1,9 +1,11 @@
 module Main exposing (Model, main)
 
 import Browser
-import Html exposing (Html, div, text)
+import Html exposing (Html, button, div, text)
+import Html.Events exposing (onClick)
 import Random
 import Student
+import StudentBody
 import Util
 import Weapon
 
@@ -12,19 +14,19 @@ main =
     Browser.element { init = init, update = update, subscriptions = subscriptions, view = view }
 
 
-type Model
-    = Stdt Student.Student
-    | None
+type alias Model =
+    StudentBody.StudentBody
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( None, Random.generate NewStudent (Student.newStudent (Student.StudentBody [] 0)) )
+    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 6 StudentBody.empty) )
 
 
 type Msg
     = NoOp
-    | NewStudent Student.Student
+    | NewStudents StudentBody.StudentBody
+    | GetNewStudents Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -33,8 +35,11 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        NewStudent x ->
-            ( Stdt x, Cmd.none )
+        NewStudents x ->
+            ( x, Cmd.none )
+
+        GetNewStudents n ->
+            ( model, Random.generate NewStudents (StudentBody.addStudents n model) )
 
 
 viewStats { danger, hot, sharp, extra } =
@@ -53,36 +58,39 @@ viewStats { danger, hot, sharp, extra } =
         )
 
 
+renderStudent : Student.Student -> Html Msg
+renderStudent x =
+    let
+        stats =
+            Student.getStats x
+
+        prons =
+            Student.getPronouns x
+
+        weptext =
+            case Student.getWeapon x of
+                Weapon.Pilot machine ->
+                    Util.ana machine ++ " " ++ machine ++ " pilot"
+
+                Weapon.Soldier ->
+                    "some kinda soldier"
+
+                Weapon.Weapon wep ->
+                    "a person who is also " ++ Util.ana wep ++ " " ++ wep
+    in
+    div []
+        [ div [] [ text ("Name: " ++ Student.getName x ++ " [#" ++ String.fromInt (Student.getNumber x) ++ "]" ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
+        , viewStats stats
+        , div [] [ text (Student.getGivenName x ++ " is " ++ weptext) ]
+        ]
+
+
 view : Model -> Html Msg
 view y =
-    case y of
-        Stdt x ->
-            let
-                stats =
-                    Student.getStats x
-
-                prons =
-                    Student.getPronouns x
-
-                weptext =
-                    case Student.getWeapon x of
-                        Weapon.Pilot machine ->
-                            Util.ana machine ++ " " ++ machine ++ " pilot"
-
-                        Weapon.Soldier ->
-                            "some kinda soldier"
-
-                        Weapon.Weapon wep ->
-                            "a person who is also " ++ Util.ana wep ++ " " ++ wep
-            in
-            div []
-                [ div [] [ text ("Name: " ++ Student.getName x ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
-                , viewStats stats
-                , div [] [ text (Student.getName x ++ " is " ++ weptext) ]
-                ]
-
-        _ ->
-            div [] [ text "Nah" ]
+    div []
+        [ button [ onClick (GetNewStudents 1) ] [ text "NEW!!!" ]
+        , div [] (List.map renderStudent (StudentBody.asList y) |> List.intersperse (div [] [ text "------" ]))
+        ]
 
 
 subscriptions : Model -> Sub Msg

@@ -1,4 +1,4 @@
-module Student exposing (Student, StudentBody(..), getName, getNumber, getPronouns, getStats, getWeapon, newStudent)
+module Student exposing (Student, getFamilyName, getGivenName, getName, getNumber, getPronouns, getStats, getWeapon, newStudent)
 
 import Array
 import Basics exposing (round)
@@ -121,6 +121,16 @@ getName (Student std) =
     Name.toString std.name
 
 
+getFamilyName : Student -> String
+getFamilyName (Student std) =
+    Name.toFamilyString std.name
+
+
+getGivenName : Student -> String
+getGivenName (Student std) =
+    Name.toGivenString std.name
+
+
 getStats : Student -> VisibleStats
 getStats (Student std) =
     std.visible
@@ -143,12 +153,12 @@ getWeapon (Student { weapontype }) =
     weapontype
 
 
-newStudent : StudentBody -> Generator Student
-newStudent (StudentBody _ lastNum) =
+newStudent : Int -> Generator Student
+newStudent studentNumber =
     Random.map5
         (\vs is name pro wep ->
             Student
-                { num = lastNum + 1
+                { num = studentNumber
                 , name = name
                 , pronouns = pro
                 , weapontype = wep
@@ -163,11 +173,3 @@ newStudent (StudentBody _ lastNum) =
         Name.newName
         newProns
         newWepType
-
-
-
--- StudentBody has a list of students and the current largest student number
-
-
-type StudentBody
-    = StudentBody (List Student) Int
