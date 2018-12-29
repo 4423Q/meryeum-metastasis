@@ -2,7 +2,6 @@ module Name exposing (Name, newName, newRelativeName, toFamilyString, toGivenStr
 
 import Array
 import Basics exposing (round)
-import Debug
 import List.Extra
 import Random exposing (Generator)
 import Random.Float
@@ -474,7 +473,7 @@ getSepString con =
 
 newRelativeName : Name -> Generator Name
 newRelativeName name =
-    case Debug.log "name" name of
+    case name of
         Name { names, separators, family, given } ->
             case List.length names of
                 1 ->
