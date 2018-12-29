@@ -4,9 +4,11 @@ module Student exposing
     , getBonds
     , getFamilyName
     , getGivenName
+    , getInvisibleStats
     , getName
     , getNumber
     , getPronouns
+    , getQuirks
     , getStats
     , getWeapon
     , newRelative
@@ -19,6 +21,7 @@ import Basics exposing (round)
 import Bonds
 import Dict exposing (Dict)
 import Name
+import Quirks
 import Random exposing (Generator)
 import Random.Float
 import Weapon exposing (WeaponType, newWepType, weapons)
@@ -125,7 +128,126 @@ type Student
         , invisible : InvisibleStats
         , bonds : Bonds.Bonds
         , value : Int
+        , quirks : List Quirks.Quirk
         }
+
+
+getQuirkChance : Student -> Quirks.Quirk -> Float
+getQuirkChance student (Quirks.Quirk name) =
+    let
+        vS =
+            getStats student
+
+        iS =
+            getInvisibleStats student
+
+        wep =
+            getWeapon student
+    in
+    case name of
+        Quirks.HasADog ->
+            1
+
+        Quirks.LovesHotDogs ->
+            1
+
+        Quirks.Homesick ->
+            1
+
+        Quirks.KeepsABulletJournal ->
+            if vS.sharp > 6 then
+                5
+
+            else
+                1
+
+        Quirks.LovesToFight ->
+            if iS.angry >= 8 && vS.danger >= 7 then
+                100
+
+            else
+                0
+
+        Quirks.RulesNerd ->
+            case wep of
+                Weapon.Tactician ->
+                    5
+
+                Weapon.Commander ->
+                    5
+
+                _ ->
+                    0
+
+        Quirks.StoleAMecha ->
+            case wep of
+                Weapon.Pilot "Mecha" ->
+                    toFloat iS.ambition * 20
+
+                _ ->
+                    0
+
+        Quirks.DestinedForGreatness ->
+            if vS.extra >= 8 && iS.ambition >= 8 then
+                10
+
+            else
+                0
+
+        Quirks.ExtraHot ->
+            if vS.hot >= 10 then
+                10
+
+            else
+                0
+
+        Quirks.Fanfic ->
+            if vS.sharp >= 7 && iS.horny >= 7 then
+                15
+
+            else
+                1
+
+        Quirks.LiveStreamsTraining ->
+            if vS.extra >= 8 && iS.diversion >= 6 then
+                10
+
+            else
+                0
+
+        Quirks.TeamCaptain ->
+            if vS.danger >= 8 && iS.diversion >= 8 then
+                5
+
+            else
+                0
+
+        Quirks.FightsBlindfolded ->
+            case wep of
+                Weapon.Soldier ->
+                    if vS.extra > 8 then
+                        20
+
+                    else
+                        0
+
+                _ ->
+                    0
+
+
+genRandomQuirk : Student -> Generator (Maybe Quirks.Quirk)
+genRandomQuirk student =
+    Quirks.availableRandomQuirks
+        |> List.map
+            (\x -> ( getQuirkChance student x, Just x ))
+        |> (\y ->
+                case y of
+                    [] ->
+                        Random.weighted ( 100, Nothing ) []
+
+                    zs ->
+                        Random.weighted ( 100, Nothing ) zs
+           )
 
 
 getName : Student -> String
@@ -146,6 +268,11 @@ getGivenName (Student std) =
 getStats : Student -> VisibleStats
 getStats (Student std) =
     std.visible
+
+
+getInvisibleStats : Student -> InvisibleStats
+getInvisibleStats (Student s) =
+    s.invisible
 
 
 getNumber : Student -> Int
@@ -179,6 +306,20 @@ getBonds student =
             Bonds.asList bonds
 
 
+addQuirk : Student -> Quirks.Quirk -> Student
+addQuirk (Student s) quirk =
+    if List.member quirk s.quirks then
+        Student s
+
+    else
+        Student { s | quirks = quirk :: s.quirks }
+
+
+getQuirks : Student -> List Quirks.Quirk
+getQuirks (Student s) =
+    s.quirks
+
+
 newStudent : Generator Student
 newStudent =
     Random.map5
@@ -191,6 +332,7 @@ newStudent =
                 , visible = vs
                 , invisible = is
                 , bonds = Bonds.empty
+                , quirks = []
                 , value = 0
                 }
         )
@@ -199,6 +341,19 @@ newStudent =
         Name.newName
         newProns
         newWepType
+        |> Random.andThen
+            (\student ->
+                genRandomQuirk student
+                    |> Random.map
+                        (\q ->
+                            case q of
+                                Just qu ->
+                                    addQuirk student qu
+
+                                Nothing ->
+                                    student
+                        )
+            )
 
 
 setNumber : Int -> Student -> Student
@@ -222,6 +377,7 @@ newRelative student =
                         , visible = vs
                         , invisible = is
                         , bonds = Bonds.empty
+                        , quirks = []
                         , value = 0
                         }
                 )
@@ -230,3 +386,16 @@ newRelative student =
                 (Name.newRelativeName name)
                 newProns
                 newWepType
+                |> Random.andThen
+                    (\student2 ->
+                        genRandomQuirk student2
+                            |> Random.map
+                                (\q ->
+                                    case q of
+                                        Just qu ->
+                                            addQuirk student2 qu
+
+                                        Nothing ->
+                                            student2
+                                )
+                    )

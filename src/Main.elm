@@ -4,6 +4,7 @@ import Bonds
 import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
+import Quirks
 import Random
 import String.Extra
 import Student
@@ -85,6 +86,78 @@ viewStats { danger, hot, sharp, extra } =
         )
 
 
+quirkToString : Student.Student -> Quirks.Quirk -> String
+quirkToString student (Quirks.Quirk name) =
+    let
+        sProns =
+            Student.getPronouns student
+
+        friendly =
+            Student.getGivenName student
+    in
+    case name of
+        Quirks.HasADog ->
+            String.Extra.toSentenceCase sProns.pos ++ " pet dog stays back home during term time."
+
+        Quirks.LovesHotDogs ->
+            "Really loves hot dogs. Way more than you'd expect."
+
+        Quirks.KeepsABulletJournal ->
+            "Keeps a bullet journal, neat!"
+
+        Quirks.FightsBlindfolded ->
+            "Fights blindfolded."
+
+        Quirks.LovesToFight ->
+            String.join " "
+                [ String.Extra.toSentenceCase sProns.subj
+                , Util.isare sProns.subj
+                , "a known brawler."
+                ]
+
+        Quirks.StoleAMecha ->
+            String.join " "
+                [ friendly
+                , "stole a classified war machine from a government facility."
+                ]
+
+        Quirks.DestinedForGreatness ->
+            String.join " "
+                [ String.Extra.toSentenceCase sProns.subj
+                , "will one day do someting incredible... but not yet."
+                ]
+
+        Quirks.ExtraHot ->
+            String.join " "
+                [ "There's really no overstating how absurdly hot"
+                , String.toLower sProns.subj
+                , Util.isare sProns.subj ++ "..."
+                ]
+
+        Quirks.RulesNerd ->
+            String.join " "
+                [ String.Extra.toSentenceCase sProns.subj
+                , Util.hasHave sProns.subj
+                , "memorised the \"Battlefields & Ballistas\" ruleset, including the extended grappling supplement."
+                ]
+
+        Quirks.Homesick ->
+            String.join " "
+                [ String.Extra.toSentenceCase sProns.subj
+                , Util.hasHave sProns.subj
+                , "a little bit homesick :("
+                ]
+
+        Quirks.LiveStreamsTraining ->
+            "Livestreams " ++ sProns.pos ++ " training sessions."
+
+        Quirks.TeamCaptain ->
+            "Captain of the school Vethball team."
+
+        Quirks.Fanfic ->
+            "Working on some new fanfic, some real premium shit..."
+
+
 bondToString : Student.Student -> Student.Student -> Bonds.Bond -> String
 bondToString source target bond =
     let
@@ -123,9 +196,18 @@ renderBond studentSource ( bond, studentTarget ) =
         [ text <| bondToString studentSource studentTarget bond ]
 
 
+renderQuirk : Student.Student -> Quirks.Quirk -> Html Msg
+renderQuirk student quirk =
+    div []
+        [ text <| quirkToString student quirk ]
+
+
 renderStudent : StudentBody.StudentBody -> Student.Student -> Html Msg
 renderStudent body x =
     let
+        quirks =
+            Student.getQuirks x
+
         bonds =
             Student.getBonds x
                 |> List.foldr
@@ -172,6 +254,7 @@ renderStudent body x =
             [ text (Student.getGivenName x ++ " is " ++ weptext)
             ]
         , div [] (List.map (renderBond x) bonds)
+        , div [] (List.map (renderQuirk x) quirks)
         ]
 
 

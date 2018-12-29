@@ -1,4 +1,4 @@
-module Util exposing (ana, deplural, genUniformFromArray, genUniformFromArray2, isare)
+module Util exposing (ana, deplural, genUniformFromArray, genUniformFromArray2, hasHave, isare)
 
 import Array
 import Random exposing (Generator)
@@ -13,6 +13,16 @@ isare pron =
 
         _ ->
             "is"
+
+
+hasHave : String -> String
+hasHave pron =
+    case String.toLower pron of
+        "they" ->
+            "have"
+
+        _ ->
+            "has"
 
 
 deplural : String -> String -> String
