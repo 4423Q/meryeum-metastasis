@@ -7277,7 +7277,22 @@ var elm$core$List$intersperse = F2(
 		}
 	});
 var elm$core$List$sortBy = _List_sortBy;
+var elm$html$Html$a = _VirtualDom_node('a');
 var elm$html$Html$button = _VirtualDom_node('button');
+var elm$json$Json$Encode$string = _Json_wrap;
+var elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			elm$json$Json$Encode$string(string));
+	});
+var elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
 var elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 0, a: a};
 };
@@ -7302,15 +7317,31 @@ var author$project$Main$view = function (y) {
 		_List_fromArray(
 			[
 				A2(
-				elm$html$Html$button,
+				elm$html$Html$a,
 				_List_fromArray(
 					[
-						elm$html$Html$Events$onClick(
-						author$project$Main$GetNewStudents(1))
+						elm$html$Html$Attributes$href('https://twitter.com/4423QQ')
 					]),
 				_List_fromArray(
 					[
-						elm$html$Html$text('NEW!!!')
+						elm$html$Html$text('by edelweiss (4423)')
+					])),
+				A2(
+				elm$html$Html$div,
+				_List_Nil,
+				_List_fromArray(
+					[
+						A2(
+						elm$html$Html$button,
+						_List_fromArray(
+							[
+								elm$html$Html$Events$onClick(
+								author$project$Main$GetNewStudents(1))
+							]),
+						_List_fromArray(
+							[
+								elm$html$Html$text('NEW PERSON !!!!')
+							]))
 					])),
 				A2(
 				elm$html$Html$div,

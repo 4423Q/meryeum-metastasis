@@ -2,7 +2,8 @@ module Main exposing (Model, main)
 
 import Bonds
 import Browser
-import Html exposing (Html, button, div, text)
+import Html exposing (Html, a, button, div, text)
+import Html.Attributes exposing (href)
 import Html.Events exposing (onClick)
 import Quirks
 import Random
@@ -261,7 +262,8 @@ renderStudent body x =
 view : Model -> Html Msg
 view y =
     div []
-        [ button [ onClick (GetNewStudents 1) ] [ text "NEW!!!" ]
+        [ a [ href "https://twitter.com/4423QQ" ] [ text "by edelweiss (4423)" ]
+        , div [] [ button [ onClick (GetNewStudents 1) ] [ text "NEW PERSON !!!!" ] ]
         , div []
             (StudentBody.asList y
                 |> List.sortBy (\x -> 1 - Student.getNumber x)
