@@ -38,6 +38,7 @@ pronounsList =
     , ( 30, Pronoun "she" "her" "her " "hers" )
     , ( 10, Pronoun "ze" "zir" "zir" "zirs" )
     , ( 10, Pronoun "ze" "hir" "hir" "hirs" )
+    , ( 10, Pronoun "xe" "xem" "xir" "xirs" )
     ]
 
 

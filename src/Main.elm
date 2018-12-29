@@ -5,6 +5,7 @@ import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
 import Random
+import String.Extra
 import Student
 import StudentBody
 import Util
@@ -84,21 +85,42 @@ viewStats { danger, hot, sharp, extra } =
         )
 
 
+bondToString : Student.Student -> Student.Student -> Bonds.Bond -> String
+bondToString source target bond =
+    let
+        sProns =
+            Student.getPronouns source
+
+        tName =
+            Student.getName target
+
+        sFriendly =
+            Student.getGivenName source
+    in
+    case bond of
+        Bonds.Relative Bonds.Sibling _ ->
+            String.Extra.toSentenceCase sProns.pos ++ " sibling is " ++ tName ++ "."
+
+        Bonds.Relative Bonds.Cousin _ ->
+            String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.isare sProns.subj ++ " " ++ tName ++ "'s cousin."
+
+        Bonds.InLove _ ->
+            String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.isare sProns.subj ++ " in love with " ++ tName ++ "!"
+
+        Bonds.Friend _ ->
+            String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.isare sProns.subj ++ " friends with " ++ tName ++ "."
+
+        Bonds.Enemy _ ->
+            String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.deplural sProns.subj "despises" ++ " " ++ tName ++ "."
+
+        Bonds.Rival _ ->
+            tName ++ " has a rivalry with " ++ sFriendly ++ "."
+
+
 renderBond : Student.Student -> ( Bonds.Bond, Student.Student ) -> Html Msg
 renderBond studentSource ( bond, studentTarget ) =
     div []
-        [ text
-            (case bond of
-                Bonds.Relative Bonds.Sibling _ ->
-                    (Student.getPronouns studentSource).pos ++ " sibling is " ++ Student.getName studentTarget ++ "."
-
-                Bonds.Relative Bonds.Cousin _ ->
-                    (Student.getPronouns studentSource).subj ++ " " ++ Util.isare (Student.getPronouns studentSource).subj ++ " " ++ Student.getName studentTarget ++ "'s cousin."
-
-                _ ->
-                    "Not implemented yet sorry"
-            )
-        ]
+        [ text <| bondToString studentSource studentTarget bond ]
 
 
 renderStudent : StudentBody.StudentBody -> Student.Student -> Html Msg
@@ -150,7 +172,6 @@ renderStudent body x =
             [ text (Student.getGivenName x ++ " is " ++ weptext)
             ]
         , div [] (List.map (renderBond x) bonds)
-        , div [] [ button [ onClick (GetNewRelative (Student.getNumber x)) ] [ text "ADD RELATIVE" ] ]
         ]
 
 

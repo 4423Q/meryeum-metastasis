@@ -79,8 +79,68 @@ genStudent : StudentBody -> Generator (Maybe ( Student.Student, StudentBody ))
 genStudent ((StudentBody students lastNum) as studentBody) =
     Random.andThen identity <|
         Random.weighted
-            ( 90, Random.map (\x -> Just (addStudent x studentBody)) newStudent )
-            [ ( 10, genRandomRelative studentBody ) ]
+            ( 85
+            , newStudent
+                |> Random.andThen
+                    (\student ->
+                        Random.map
+                            (\x -> ( student, x ))
+                            (Random.uniform True [ False ])
+                    )
+                |> Random.andThen
+                    (\( x, shouldHaveABond ) ->
+                        case shouldHaveABond of
+                            False ->
+                                Random.constant (Just (addStudent x studentBody))
+
+                            True ->
+                                let
+                                    ( newStd, newBody ) =
+                                        addStudent x studentBody
+                                in
+                                Random.map
+                                    (\bond ->
+                                        addBondToStudentById bond (Student.getNumber newStd) newBody
+                                            |> Maybe.andThen
+                                                (\newBody2 ->
+                                                    case
+                                                        getStudentById newBody (Student.getNumber newStd)
+                                                    of
+                                                        Just a ->
+                                                            Just ( a, newBody2 )
+
+                                                        Nothing ->
+                                                            Nothing
+                                                )
+                                    )
+                                    (genRandomNonRelativeBond newBody)
+                    )
+            )
+            [ ( 15, genRandomRelative studentBody ) ]
+
+
+genRandomNonRelativeBond : StudentBody -> Generator Bonds.Bond
+genRandomNonRelativeBond body =
+    Util.genUniformFromArray2
+        (Array.fromList (asList body))
+        |> Random.andThen
+            (\x ->
+                case x of
+                    Just b ->
+                        let
+                            a =
+                                Student.getNumber b
+                        in
+                        Random.weighted
+                            ( 50, Bonds.Friend a )
+                            [ ( 30, Bonds.Enemy a )
+                            , ( 20, Bonds.Rival a )
+                            , ( 5, Bonds.InLove a )
+                            ]
+
+                    Nothing ->
+                        genRandomNonRelativeBond body
+            )
 
 
 addStudents : Int -> StudentBody -> Generator StudentBody
@@ -98,7 +158,7 @@ addStudents n studentBody =
                                 addStudents (n - 1) newBody
 
                             _ ->
-                                addStudents (n - 1) studentBody
+                                addStudents n studentBody
                     )
                     (genStudent studentBody)
 
@@ -194,20 +254,30 @@ genRelative target body =
         targetNumber =
             Student.getNumber target
     in
-    Random.map2
-        (\student bond ->
-            let
-                ( addedStudent, newBody ) =
-                    addStudent student body
-            in
-            addBondToStudentById bond (Student.getNumber addedStudent) newBody
-                |> Maybe.map
-                    (\body2 -> ( addedStudent, body2 ))
-        )
-        (Student.newRelative target)
-        (Random.uniform (Bonds.Relative Bonds.Sibling targetNumber)
-            [ Bonds.Relative Bonds.Cousin targetNumber ]
-        )
+    Random.uniform (Bonds.Relative Bonds.Sibling targetNumber)
+        [ Bonds.Relative Bonds.Cousin targetNumber ]
+        |> Random.andThen
+            (\bond ->
+                (case bond of
+                    Bonds.Relative Bonds.Sibling _ ->
+                        Random.constant (Student.newRelative target)
+
+                    _ ->
+                        Random.uniform (Student.newRelative target) [ Student.newStudent ]
+                )
+                    |> Random.andThen identity
+                    |> Random.map (\student -> ( student, bond ))
+            )
+        |> Random.map
+            (\( student, bond ) ->
+                let
+                    ( addedStudent, newBody ) =
+                        addStudent student body
+                in
+                addBondToStudentById bond (Student.getNumber addedStudent) newBody
+                    |> Maybe.map
+                        (\body2 -> ( addedStudent, body2 ))
+            )
 
 
 addRelative : Int -> StudentBody -> Maybe (Generator (Maybe StudentBody))
