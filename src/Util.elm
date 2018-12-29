@@ -1,4 +1,4 @@
-module Util exposing (ana, genUniformFromArray, isare)
+module Util exposing (ana, genUniformFromArray, genUniformFromArray2, isare)
 
 import Array
 import Random exposing (Generator)
@@ -29,6 +29,16 @@ ana word =
 
     else
         "a"
+
+
+genUniformFromArray2 : Array.Array a -> Generator (Maybe a)
+genUniformFromArray2 arr =
+    Random.map
+        (\item -> Array.get item arr)
+        (Random.int
+            0
+            (Array.length arr - 1)
+        )
 
 
 genUniformFromArray : (a -> b) -> a -> Array.Array a -> Generator b

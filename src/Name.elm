@@ -1,7 +1,8 @@
-module Name exposing (Name, newName, toFamilyString, toGivenString, toString)
+module Name exposing (Name, newName, newRelativeName, toFamilyString, toGivenString, toString)
 
 import Array
 import Basics exposing (round)
+import Debug
 import List.Extra
 import Random exposing (Generator)
 import Random.Float
@@ -9,73 +10,119 @@ import Random.Float
 
 namesArray =
     Array.fromList
-        [ "Aadhya"
+        [ "00"
+        , "Aadhya"
         , "Aarav"
         , "Addax"
         , "Aegis"
+        , "Aether"
         , "Algernon"
+        , "Callista"
+        , "Saturday"
+        , "Oratorio"
+        , "Tangent"
+        , "Fulfilled"
+        , "Exceed"
+        , "Sylph"
+        , "Glyph"
+        , "Returner"
+        , "Aaliyah"
+        , "Erykah"
+        , "Volver"
         , "Alpha"
         , "Alvarez"
+        , "Amar"
         , "Amuro"
-        , "Playa"
-        , "Pistil"
-        , "Chrome"
+        , "Apex"
         , "April"
         , "Art"
+        , "Arturia"
         , "Asano"
         , "August"
+        , "Autumn"
+        , "Azure"
         , "Basel"
         , "Belladonna"
         , "Berg"
         , "Blake"
+        , "Blue"
         , "Borges"
-        , "Bridge"
         , "Bravo"
+        , "Breeze"
+        , "Bridge"
         , "Brink"
+        , "Cadenza"
         , "Calamity"
         , "Calibre"
         , "Careless"
+        , "Carmichael"
         , "Carta"
         , "Celia"
         , "Ceres"
+        , "Chambers"
         , "Chanbara"
         , "Chandra"
         , "Char"
         , "Chasm"
         , "Cherise"
+        , "Chrome"
         , "Claire"
         , "Clarity"
+        , "Clearly"
         , "Cobra"
         , "Cordova"
+        , "Corrected"
+        , "Cosmos"
+        , "Crimson"
+        , "Croft"
         , "Cruz"
         , "Daisy"
         , "Daryl"
         , "Dawn"
         , "December"
+        , "Dionysis"
         , "Diya"
         , "Dragoon"
+        , "EX//HALE"
         , "Eager"
+        , "Eerie"
         , "Endings"
         , "Enoshima"
         , "Erin"
         , "Etienne"
+        , "Evergreen"
+        , "Fall"
+        , "Fading"
+        , "Fantom"
         , "February"
         , "Fedor"
+        , "Fee"
         , "Foon"
+        , "Fortune"
+        , "Four"
+        , "Galen"
         , "Gary"
+        , "Gently"
         , "Gilbres"
         , "Giren"
+        , "Golden"
         , "Grace"
+        , "Matilde"
+        , "Glory"
         , "Hasma"
+        , "Heaven"
+        , "Hectare"
         , "Henk"
+        , "Heron"
         , "Hime"
         , "Honk"
-        , "Seisma"
+        , "Hu"
         , "Iapetus"
         , "Ismael"
         , "January"
         , "Jennifer"
         , "Jorge"
+        , "Journal"
         , "Joven"
         , "July"
         , "June"
@@ -86,13 +133,15 @@ namesArray =
         , "Keith"
         , "Kiba"
         , "Kilbride"
+        , "Kim"
         , "Kingdom"
         , "Kitty"
         , "Kuro"
-        , "Kim"
         , "Kwame"
         , "Lamar"
         , "Laplace"
+        , "Lars"
+        , "Last"
         , "Links"
         , "Long"
         , "Mako"
@@ -101,41 +150,40 @@ namesArray =
         , "Marida"
         , "Maryam"
         , "May"
-        , "San"
-        , "Galen"
-        , "Mira"
-        , "Ong"
         , "Medea"
+        , "Meisin"
         , "Meryuem"
         , "Metastasis"
+        , "Millia"
+        , "Mira"
         , "Mishka"
-        , "Amar"
-        , "Pewter"
-        , "Void"
-        , "EX//HALE"
-        , "Remembrance"
-        , "Toady"
-        , "Reppa"
-        , "Pliskin"
-        , "Theta"
-        , "Sigma"
-        , "Uratora"
-        , "Cosmos"
         , "Momo"
         , "Mu"
         , "Mulder"
         , "Nadiya"
         , "Nakamura"
+        , "Nana"
         , "Nat"
+        , "Never"
         , "Nine"
         , "November"
+        , "Nu"
         , "Nyanna"
         , "Olive"
+        , "Ong"
         , "Palace"
+        , "Pathos"
         , "Pechen"
         , "Peel"
         , "Pelenor"
+        , "Perennial"
         , "Perrin"
+        , "Pewter"
+        , "Phonon"
+        , "Phylum"
+        , "Pistil"
+        , "Playa"
+        , "Pliskin"
         , "Plue"
         , "Pool"
         , "Priest"
@@ -145,51 +193,98 @@ namesArray =
         , "Rainy"
         , "Rashid"
         , "Reed"
+        , "Remembrance"
+        , "Remilia"
+        , "Remy"
         , "Ren"
         , "Replica"
+        , "Reppa"
+        , "Reuben"
+        , "Reverie"
         , "Rose"
         , "Ruby"
         , "Rye"
         , "Sachiko"
+        , "Calaclysm"
+        , "Schism"
+        , "Bells"
+        , "Celestial"
+        , "Congregation"
+        , "Luna"
+        , "Forgotten"
+        , "Hundred"
+        , "Crows"
+        , "Leaves"
+        , "Regrets"
+        , "Without"
+        , "Helical"
+        , "Zenith"
+        , "Ghostly"
+        , "Sacrosanct"
         , "Saif"
-        , "Blue"
-        , "Crimson"
-        , "Azure"
-        , "Scarlet"
+        , "San"
         , "Sanctity"
+        , "Blooming"
+        , "Scarlet"
         , "Schnee"
+        , "Seconds"
+        , "Seisma"
         , "Seitur"
         , "September"
         , "Seven"
+        , "Shadows"
         , "Shanaya"
         , "Shin"
+        , "Sigma"
         , "Siya"
+        , "Softly"
         , "Solace"
         , "Sonon"
         , "Sora"
         , "Sorrel"
+        , "Spring"
+        , "Stand"
+        , "Summer"
         , "Sunny"
+        , "Sword"
+        , "Oskar"
         , "Temerity"
         , "Tethys"
         , "Thalia"
         , "Theodor"
+        , "Theta"
+        , "Gleaming"
+        , "Altar"
+        , "Halls"
+        , "Rachael"
+        , "Tiger"
+        , "Today"
+        , "Søren"
         , "Twain"
         , "Twelve"
         , "Two"
         , "Ultima"
         , "Untimely"
+        , "Uratora"
         , "Villalobos"
+        , "Void"
         , "Warren"
         , "Wasim"
         , "Watari"
         , "Weiss"
+        , "Winter"
+        , "Woo"
         , "X"
         , "Xi"
         , "Xiao"
-        , "Zhou"
         , "Yang"
+        , "Eternity"
+        , "Forever"
+        , "Mugen"
         , "Yubi"
+        , "Zhou"
         , "k"
+        , "ϱ"
         ]
 
 
@@ -232,21 +327,29 @@ coalesce names separators =
                                     coalesce bottomNames bottomSeps
                             in
                             case topSep of
-                                Breaking y ->
+                                BreakingCombinator y ->
                                     case newNames of
                                         z :: zs ->
-                                            ( topName :: String.trim (y ++ z) :: zs, bottomSeps )
+                                            case String.startsWith " " y of
+                                                True ->
+                                                    ( topName :: String.trimLeft (y ++ z) :: zs, BreakingNonCombinator " " :: newSeps )
+
+                                                False ->
+                                                    ( topName :: String.trimLeft (y ++ z) :: zs, newSeps )
 
                                         _ ->
-                                            ( topName :: newNames, bottomSeps )
+                                            ( topName :: newNames, newSeps )
 
-                                NonBreaking y ->
+                                BreakingNonCombinator _ ->
+                                    ( topName :: newNames, topSep :: newSeps )
+
+                                NonBreakingCombinator y ->
                                     case newNames of
                                         z :: zs ->
-                                            ( (topName ++ y ++ z) :: zs, bottomSeps )
+                                            ( (topName ++ y ++ z) :: zs, newSeps )
 
                                         zs ->
-                                            ( topName :: zs, bottomSeps )
+                                            ( topName :: zs, newSeps )
 
                         _ ->
                             ( names, [] )
@@ -283,10 +386,13 @@ getNameAndSeparatorString names seps position =
                     List.drop (position - 1) seps |> List.head
             in
             case lastsep of
-                Just (Breaking x) ->
+                Just (BreakingCombinator x) ->
                     String.trim (x ++ baseName)
 
-                Just (NonBreaking x) ->
+                Just (BreakingNonCombinator x) ->
+                    String.trim (x ++ baseName)
+
+                Just (NonBreakingCombinator x) ->
                     getNameAndSeparatorString names seps (position - 1) ++ x ++ baseName
 
                 Nothing ->
@@ -315,32 +421,67 @@ toGivenString name =
 newConnector : Generator Connector
 newConnector =
     Random.weighted
-        ( 85, Breaking " " )
-        [ ( 10, NonBreaking "-" )
-        , ( 5, NonBreaking "'" )
-        , ( 5, Breaking " d'" )
-        , ( 5, Breaking " la " )
-        , ( 5, NonBreaking " of " )
-        , ( 5, Breaking " of " )
-        , ( 5, Breaking " v'" )
-        , ( 5, NonBreaking " v'" )
-        , ( 2, Breaking " whist-" )
-        , ( 1, NonBreaking " the " )
+        ( 110, BreakingNonCombinator " " )
+        [ ( 10, NonBreakingCombinator "-" )
+        , ( 5, BreakingNonCombinator "-" )
+        , ( 5, NonBreakingCombinator "'" )
+        , ( 5, BreakingNonCombinator "'" )
+        , ( 5, BreakingCombinator " d'" )
+        , ( 5, BreakingCombinator " la " )
+        , ( 5, NonBreakingCombinator " of " )
+        , ( 5, BreakingCombinator " of " )
+        , ( 5, BreakingNonCombinator " of " )
+        , ( 5, BreakingCombinator " v'" )
+        , ( 5, NonBreakingCombinator " v'" )
+        , ( 5, BreakingCombinator " de " )
+        , ( 2, BreakingCombinator " whist-" )
+        , ( 1, NonBreakingCombinator " the " )
+        , ( 1, BreakingNonCombinator ", " )
         ]
 
 
 type Connector
-    = Breaking String
-    | NonBreaking String
+    = BreakingCombinator String
+    | BreakingNonCombinator String
+    | NonBreakingCombinator String
 
 
 getSepString con =
     case con of
-        Breaking x ->
+        BreakingCombinator x ->
             x
 
-        NonBreaking x ->
+        BreakingNonCombinator x ->
             x
+
+        NonBreakingCombinator x ->
+            x
+
+
+newRelativeName : Name -> Generator Name
+newRelativeName name =
+    case Debug.log "name" name of
+        Name { names, separators, family, given } ->
+            case List.length names of
+                1 ->
+                    newName
+
+                x ->
+                    Random.map
+                        (\newNames ->
+                            Name
+                                { names =
+                                    List.concat
+                                        [ List.take family newNames
+                                        , List.take 1 (List.drop family names)
+                                        , List.drop family newNames
+                                        ]
+                                , separators = separators
+                                , family = family
+                                , given = given
+                                }
+                        )
+                        (Random.list (x - 1) getNameFromList)
 
 
 newName : Generator Name
@@ -353,13 +494,18 @@ newName =
             else
                 round n
         )
-        (Random.Float.normal 2.3 0.6)
+        (Random.Float.normal 2.4 0.6)
         |> Random.andThen (\len -> Random.list len getNameFromList)
         |> Random.andThen
             (\xs ->
-                Random.map2
-                    (\cons len -> ( xs, cons, len ))
+                Random.map
+                    (\cons -> coalesce xs cons)
                     (Random.list (List.length xs - 1) newConnector)
+            )
+        |> Random.andThen
+            (\( xs, cons ) ->
+                Random.map
+                    (\fam -> ( xs, cons, fam ))
                     (Random.int 0 (List.length xs - 1))
             )
         |> Random.andThen

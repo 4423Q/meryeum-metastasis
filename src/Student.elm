@@ -1,7 +1,22 @@
-module Student exposing (Student, getFamilyName, getGivenName, getName, getNumber, getPronouns, getStats, getWeapon, newStudent)
+module Student exposing
+    ( Student
+    , addBond
+    , getBonds
+    , getFamilyName
+    , getGivenName
+    , getName
+    , getNumber
+    , getPronouns
+    , getStats
+    , getWeapon
+    , newRelative
+    , newStudent
+    , setNumber
+    )
 
 import Array
 import Basics exposing (round)
+import Bonds
 import Dict exposing (Dict)
 import Name
 import Random exposing (Generator)
@@ -10,19 +25,19 @@ import Weapon exposing (WeaponType, newWepType, weapons)
 
 
 
--- They/Them/Their
+-- They/Them/Their/Their - She/Her/Her/Hers
 
 
 type Pronoun
-    = Pronoun String String String
+    = Pronoun String String String String
 
 
 pronounsList =
-    [ ( 30, Pronoun "they" "them" "their" )
-    , ( 30, Pronoun "he" "him" "his" )
-    , ( 30, Pronoun "she" "her" "hers" )
-    , ( 10, Pronoun "ze" "zir" "zirs" )
-    , ( 10, Pronoun "ze" "hir" "hirs" )
+    [ ( 30, Pronoun "they" "them" "their" "their" )
+    , ( 30, Pronoun "he" "him" "his" "his" )
+    , ( 30, Pronoun "she" "her" "her " "hers" )
+    , ( 10, Pronoun "ze" "zir" "zir" "zirs" )
+    , ( 10, Pronoun "ze" "hir" "hir" "hirs" )
     ]
 
 
@@ -34,7 +49,7 @@ newProns =
                 x
 
             Nothing ->
-                ( 30, Pronoun "they" "them" "their" )
+                ( 30, Pronoun "they" "them" "their" "their" )
         )
         (case List.tail pronounsList of
             Just x ->
@@ -43,10 +58,6 @@ newProns =
             Nothing ->
                 []
         )
-
-
-type Bond
-    = Friend
 
 
 type alias Stat =
@@ -111,7 +122,7 @@ type Student
         , weapontype : WeaponType
         , visible : VisibleStats
         , invisible : InvisibleStats
-        , bonds : Dict String Bond
+        , bonds : Bonds.Bonds
         , value : Int
         }
 
@@ -141,11 +152,11 @@ getNumber (Student std) =
     std.num
 
 
-getPronouns : Student -> { subj : String, obj : String, pos : String }
+getPronouns : Student -> { subj : String, obj : String, pos : String, pos2 : String }
 getPronouns (Student { pronouns }) =
     case pronouns of
-        Pronoun a b c ->
-            { subj = a, obj = b, pos = c }
+        Pronoun a b c d ->
+            { subj = a, obj = b, pos = c, pos2 = d }
 
 
 getWeapon : Student -> WeaponType
@@ -153,18 +164,32 @@ getWeapon (Student { weapontype }) =
     weapontype
 
 
-newStudent : Int -> Generator Student
-newStudent studentNumber =
+addBond : Bonds.Bond -> Student -> Student
+addBond bond student =
+    case student of
+        Student ({ bonds } as std) ->
+            Student { std | bonds = Bonds.add bond bonds }
+
+
+getBonds : Student -> List Bonds.Bond
+getBonds student =
+    case student of
+        Student { bonds } ->
+            Bonds.asList bonds
+
+
+newStudent : Generator Student
+newStudent =
     Random.map5
         (\vs is name pro wep ->
             Student
-                { num = studentNumber
+                { num = 0
                 , name = name
                 , pronouns = pro
                 , weapontype = wep
                 , visible = vs
                 , invisible = is
-                , bonds = Dict.empty
+                , bonds = Bonds.empty
                 , value = 0
                 }
         )
@@ -173,3 +198,34 @@ newStudent studentNumber =
         Name.newName
         newProns
         newWepType
+
+
+setNumber : Int -> Student -> Student
+setNumber num student =
+    case student of
+        Student x ->
+            Student { x | num = num }
+
+
+newRelative : Student -> Generator Student
+newRelative student =
+    case student of
+        Student { name } ->
+            Random.map5
+                (\vs is newname pro wep ->
+                    Student
+                        { num = 0
+                        , name = newname
+                        , pronouns = pro
+                        , weapontype = wep
+                        , visible = vs
+                        , invisible = is
+                        , bonds = Bonds.empty
+                        , value = 0
+                        }
+                )
+                newVisibleStats
+                newInvisibleStats
+                (Name.newRelativeName name)
+                newProns
+                newWepType

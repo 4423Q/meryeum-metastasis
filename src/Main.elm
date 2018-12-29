@@ -1,5 +1,6 @@
 module Main exposing (Model, main)
 
+import Bonds
 import Browser
 import Html exposing (Html, button, div, text)
 import Html.Events exposing (onClick)
@@ -25,8 +26,24 @@ init _ =
 
 type Msg
     = NoOp
+    | MaybeNewStudents (Maybe StudentBody.StudentBody)
     | NewStudents StudentBody.StudentBody
     | GetNewStudents Int
+    | GetNewRelative Int
+
+
+getNewRelative : Model -> Int -> Cmd Msg
+getNewRelative model id =
+    let
+        newStudentBody =
+            StudentBody.addRelative id model
+    in
+    case newStudentBody of
+        Nothing ->
+            Cmd.none
+
+        Just x ->
+            Random.generate MaybeNewStudents x
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -35,11 +52,20 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
+        MaybeNewStudents (Just x) ->
+            ( x, Cmd.none )
+
+        MaybeNewStudents Nothing ->
+            ( model, Cmd.none )
+
         NewStudents x ->
             ( x, Cmd.none )
 
         GetNewStudents n ->
             ( model, Random.generate NewStudents (StudentBody.addStudents n model) )
+
+        GetNewRelative id ->
+            ( model, getNewRelative model id )
 
 
 viewStats { danger, hot, sharp, extra } =
@@ -58,9 +84,39 @@ viewStats { danger, hot, sharp, extra } =
         )
 
 
-renderStudent : Student.Student -> Html Msg
-renderStudent x =
+renderBond : Student.Student -> ( Bonds.Bond, Student.Student ) -> Html Msg
+renderBond studentSource ( bond, studentTarget ) =
+    div []
+        [ text
+            (case bond of
+                Bonds.Relative Bonds.Sibling _ ->
+                    (Student.getPronouns studentSource).pos ++ " sibling is " ++ Student.getName studentTarget ++ "."
+
+                Bonds.Relative Bonds.Cousin _ ->
+                    (Student.getPronouns studentSource).subj ++ " " ++ Util.isare (Student.getPronouns studentSource).subj ++ " " ++ Student.getName studentTarget ++ "'s cousin."
+
+                _ ->
+                    "Not implemented yet sorry"
+            )
+        ]
+
+
+renderStudent : StudentBody.StudentBody -> Student.Student -> Html Msg
+renderStudent body x =
     let
+        bonds =
+            Student.getBonds x
+                |> List.foldr
+                    (\val acc ->
+                        case StudentBody.getBondTarget val body of
+                            Just y ->
+                                ( val, y ) :: acc
+
+                            Nothing ->
+                                acc
+                    )
+                    []
+
         stats =
             Student.getStats x
 
@@ -90,7 +146,11 @@ renderStudent x =
     div []
         [ div [] [ text ("Name: " ++ Student.getName x ++ " [#" ++ String.fromInt (Student.getNumber x) ++ "]" ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
         , viewStats stats
-        , div [] [ text (Student.getGivenName x ++ " is " ++ weptext) ]
+        , div []
+            [ text (Student.getGivenName x ++ " is " ++ weptext)
+            ]
+        , div [] (List.map (renderBond x) bonds)
+        , div [] [ button [ onClick (GetNewRelative (Student.getNumber x)) ] [ text "ADD RELATIVE" ] ]
         ]
 
 
@@ -98,7 +158,12 @@ view : Model -> Html Msg
 view y =
     div []
         [ button [ onClick (GetNewStudents 1) ] [ text "NEW!!!" ]
-        , div [] (List.map renderStudent (StudentBody.asList y) |> List.intersperse (div [] [ text "------" ]))
+        , div []
+            (StudentBody.asList y
+                |> List.sortBy (\x -> 1 - Student.getNumber x)
+                |> List.map (renderStudent y)
+                |> List.intersperse (div [] [ text "------" ])
+            )
         ]
 
 
