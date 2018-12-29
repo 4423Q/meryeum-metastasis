@@ -144,7 +144,7 @@ quirkToString student (Quirks.Quirk name) =
         Quirks.Homesick ->
             String.join " "
                 [ String.Extra.toSentenceCase sProns.subj
-                , Util.hasHave sProns.subj
+                , Util.isare sProns.subj
                 , "a little bit homesick :("
                 ]
 
