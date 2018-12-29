@@ -23,101 +23,12 @@ import Bonds
 import Classes
 import Dict exposing (Dict)
 import Name
+import Pronouns exposing (Pronoun)
 import Quirks
 import Random exposing (Generator)
 import Random.Float
+import Stats exposing (InvisibleStats, Stat, VisibleStats)
 import Weapon exposing (WeaponType, newWepType, weapons)
-
-
-
--- They/Them/Their/Their - She/Her/Her/Hers
-
-
-type Pronoun
-    = Pronoun String String String String
-
-
-pronounsList =
-    [ ( 30, Pronoun "they" "them" "their" "their" )
-    , ( 30, Pronoun "he" "him" "his" "his" )
-    , ( 30, Pronoun "she" "her" "her " "hers" )
-    , ( 10, Pronoun "ze" "zir" "zir" "zirs" )
-    , ( 10, Pronoun "ze" "hir" "hir" "hirs" )
-    , ( 10, Pronoun "xe" "xem" "xir" "xirs" )
-    ]
-
-
-newProns : Generator Pronoun
-newProns =
-    Random.weighted
-        (case List.head pronounsList of
-            Just x ->
-                x
-
-            Nothing ->
-                ( 30, Pronoun "they" "them" "their" "their" )
-        )
-        (case List.tail pronounsList of
-            Just x ->
-                x
-
-            Nothing ->
-                []
-        )
-
-
-type alias Stat =
-    Int
-
-
-newStat : Generator Stat
-newStat =
-    Random.map
-        (\n ->
-            if n > 10 then
-                10
-
-            else if n < 0 then
-                0
-
-            else
-                round n
-        )
-        (Random.Float.normal 5 2)
-
-
-type alias VisibleStats =
-    { sharp : Stat
-    , danger : Stat
-    , hot : Stat
-    , extra : Stat
-    }
-
-
-newVisibleStats =
-    Random.map4
-        (\a b c d -> { sharp = a, danger = b, hot = c, extra = d })
-        newStat
-        newStat
-        newStat
-        newStat
-
-
-type alias InvisibleStats =
-    { horny : Stat
-    , angry : Stat
-    , ambition : Stat
-    , diversion : Stat
-    }
-
-
-newInvisibleStats =
-    Random.map4
-        (\a b c d -> { horny = a, angry = b, ambition = c, diversion = d })
-        newStat
-        newStat
-        newStat
-        newStat
 
 
 type Student
@@ -133,127 +44,6 @@ type Student
         , quirks : List Quirks.Quirk
         , classes : List Classes.Class
         }
-
-
-getQuirkChance : Student -> Quirks.Quirk -> Float
-getQuirkChance student (Quirks.Quirk name) =
-    let
-        vS =
-            getStats student
-
-        iS =
-            getInvisibleStats student
-
-        wep =
-            getWeapon student
-    in
-    case name of
-        Quirks.Illuminati ->
-            1
-
-        Quirks.HasADog ->
-            1
-
-        Quirks.LovesHotDogs ->
-            1
-
-        Quirks.Homesick ->
-            1
-
-        Quirks.KeepsABulletJournal ->
-            if vS.sharp > 6 then
-                5
-
-            else
-                1
-
-        Quirks.LovesToFight ->
-            if iS.angry >= 8 && vS.danger >= 7 then
-                100
-
-            else
-                0
-
-        Quirks.RulesNerd ->
-            case wep of
-                Weapon.Tactician ->
-                    5
-
-                Weapon.Commander ->
-                    5
-
-                _ ->
-                    0
-
-        Quirks.StoleAMecha ->
-            case wep of
-                Weapon.Pilot "Mecha" ->
-                    toFloat iS.ambition * 20
-
-                _ ->
-                    0
-
-        Quirks.DestinedForGreatness ->
-            if vS.extra >= 8 && iS.ambition >= 8 then
-                10
-
-            else
-                0
-
-        Quirks.ExtraHot ->
-            if vS.hot >= 10 then
-                10
-
-            else
-                0
-
-        Quirks.Fanfic ->
-            if vS.sharp >= 7 && iS.horny >= 7 then
-                15
-
-            else
-                1
-
-        Quirks.LiveStreamsTraining ->
-            if vS.extra >= 8 && iS.diversion >= 6 then
-                10
-
-            else
-                0
-
-        Quirks.TeamCaptain ->
-            if vS.danger >= 8 && iS.diversion >= 8 then
-                5
-
-            else
-                0
-
-        Quirks.FightsBlindfolded ->
-            case wep of
-                Weapon.Soldier ->
-                    if vS.extra > 8 then
-                        20
-
-                    else
-                        0
-
-                _ ->
-                    0
-
-
-genRandomQuirk : Student -> Generator (Maybe Quirks.Quirk)
-genRandomQuirk student =
-    Quirks.availableRandomQuirks
-        |> List.map
-            (\x -> ( getQuirkChance student x, Just x ))
-        |> (\y ->
-                case y of
-                    [] ->
-                        Random.weighted ( 100, Nothing ) []
-
-                    zs ->
-                        Random.weighted ( 100, Nothing ) zs
-           )
 
 
 genAndTakeClasses : Int -> Student -> Generator Student
@@ -309,10 +99,17 @@ getNumber (Student std) =
     std.num
 
 
+setNumber : Int -> Student -> Student
+setNumber num student =
+    case student of
+        Student x ->
+            Student { x | num = num }
+
+
 getPronouns : Student -> { subj : String, obj : String, pos : String, pos2 : String }
 getPronouns (Student { pronouns }) =
     case pronouns of
-        Pronoun a b c d ->
+        Pronouns.Pronoun a b c d ->
             { subj = a, obj = b, pos = c, pos2 = d }
 
 
@@ -380,14 +177,14 @@ newStudentMaker nameGen =
                 , value = 0
                 }
         )
-        newVisibleStats
-        newInvisibleStats
+        Stats.newVisibleStats
+        Stats.newInvisibleStats
         nameGen
-        newProns
+        Pronouns.newProns
         newWepType
         |> Random.andThen
-            (\student ->
-                genRandomQuirk student
+            (\((Student s) as student) ->
+                Quirks.genRandomQuirk { visibleStats = s.visible, invisibleStats = s.invisible, weapontype = s.weapontype }
                     |> Random.map
                         (\q ->
                             case q of
@@ -400,14 +197,15 @@ newStudentMaker nameGen =
             )
         |> Random.andThen
             (\student ->
-                Random.int 4 6
+                Random.float 4 (4 + ((getStats student).sharp |> toFloat) / 2.5)
                     |> Random.andThen
                         (\classnum ->
-                            genAndTakeClasses classnum student
+                            genAndTakeClasses (Basics.round classnum) student
                         )
             )
 
 
+newStudent : Generator Student
 newStudent =
     newStudentMaker Name.newName
 
@@ -415,10 +213,3 @@ newStudent =
 newRelative : Student -> Generator Student
 newRelative (Student { name }) =
     newStudentMaker (Name.newRelativeName name)
-
-
-setNumber : Int -> Student -> Student
-setNumber num student =
-    case student of
-        Student x ->
-            Student { x | num = num }

@@ -73,7 +73,7 @@ toString class =
             "Piloting"
 
         SelfActualisation ->
-            "Self Actualisation"
+            "Self-Actualization"
 
         AuraControl ->
             "Aura Control"
