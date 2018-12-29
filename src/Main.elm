@@ -2,6 +2,7 @@ module Main exposing (Model, main)
 
 import Bonds
 import Browser
+import Classes
 import Html exposing (Html, a, button, div, text)
 import Html.Attributes exposing (href)
 import Html.Events exposing (onClick)
@@ -158,6 +159,9 @@ quirkToString student (Quirks.Quirk name) =
         Quirks.Fanfic ->
             "Working on some new fanfic, some real premium shit..."
 
+        Quirks.Illuminati ->
+            "Inducted into the secret society that runs everything."
+
 
 bondToString : Student.Student -> Student.Student -> Bonds.Bond -> String
 bondToString source target bond =
@@ -251,6 +255,7 @@ renderStudent body x =
     div []
         [ div [] [ text ("Name: " ++ Student.getName x ++ " [#" ++ String.fromInt (Student.getNumber x) ++ "]" ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
         , viewStats stats
+        , div [] [ text ("Classes: " ++ (Student.getClasses x |> List.map Classes.toString |> String.join ", ")) ]
         , div []
             [ text (Student.getGivenName x ++ " is " ++ weptext)
             ]

@@ -1,7 +1,5 @@
 module Quirks exposing (Quirk(..), QuirkName(..), availableRandomQuirks)
 
-import Random exposing (Generator)
-
 
 type QuirkName
     = HasADog
@@ -17,6 +15,7 @@ type QuirkName
     | LiveStreamsTraining
     | TeamCaptain
     | Homesick
+    | Illuminati
 
 
 type Quirk

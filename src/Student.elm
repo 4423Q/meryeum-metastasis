@@ -2,6 +2,7 @@ module Student exposing
     ( Student
     , addBond
     , getBonds
+    , getClasses
     , getFamilyName
     , getGivenName
     , getInvisibleStats
@@ -19,6 +20,7 @@ module Student exposing
 import Array
 import Basics exposing (round)
 import Bonds
+import Classes
 import Dict exposing (Dict)
 import Name
 import Quirks
@@ -129,6 +131,7 @@ type Student
         , bonds : Bonds.Bonds
         , value : Int
         , quirks : List Quirks.Quirk
+        , classes : List Classes.Class
         }
 
 
@@ -145,6 +148,9 @@ getQuirkChance student (Quirks.Quirk name) =
             getWeapon student
     in
     case name of
+        Quirks.Illuminati ->
+            1
+
         Quirks.HasADog ->
             1
 
@@ -250,6 +256,29 @@ genRandomQuirk student =
            )
 
 
+genAndTakeClasses : Int -> Student -> Generator Student
+genAndTakeClasses n student =
+    case n of
+        0 ->
+            Random.constant student
+
+        _ ->
+            Classes.genRandomClass
+                { weapon = getWeapon student
+                , quirks = getQuirks student
+                , classes = getClasses student
+                }
+                |> Random.andThen
+                    (\class ->
+                        case addClass student class of
+                            Just student2 ->
+                                genAndTakeClasses (n - 1) student2
+
+                            Nothing ->
+                                genAndTakeClasses n student
+                    )
+
+
 getName : Student -> String
 getName (Student std) =
     Name.toString std.name
@@ -315,13 +344,27 @@ addQuirk (Student s) quirk =
         Student { s | quirks = quirk :: s.quirks }
 
 
+addClass : Student -> Classes.Class -> Maybe Student
+addClass (Student s) class =
+    if List.member class s.classes then
+        Nothing
+
+    else
+        Just (Student { s | classes = class :: s.classes })
+
+
 getQuirks : Student -> List Quirks.Quirk
 getQuirks (Student s) =
     s.quirks
 
 
-newStudent : Generator Student
-newStudent =
+getClasses : Student -> List Classes.Class
+getClasses (Student s) =
+    s.classes
+
+
+newStudentMaker : Generator Name.Name -> Generator Student
+newStudentMaker nameGen =
     Random.map5
         (\vs is name pro wep ->
             Student
@@ -332,13 +375,14 @@ newStudent =
                 , visible = vs
                 , invisible = is
                 , bonds = Bonds.empty
+                , classes = []
                 , quirks = []
                 , value = 0
                 }
         )
         newVisibleStats
         newInvisibleStats
-        Name.newName
+        nameGen
         newProns
         newWepType
         |> Random.andThen
@@ -354,6 +398,23 @@ newStudent =
                                     student
                         )
             )
+        |> Random.andThen
+            (\student ->
+                Random.int 4 6
+                    |> Random.andThen
+                        (\classnum ->
+                            genAndTakeClasses classnum student
+                        )
+            )
+
+
+newStudent =
+    newStudentMaker Name.newName
+
+
+newRelative : Student -> Generator Student
+newRelative (Student { name }) =
+    newStudentMaker (Name.newRelativeName name)
 
 
 setNumber : Int -> Student -> Student
@@ -361,41 +422,3 @@ setNumber num student =
     case student of
         Student x ->
             Student { x | num = num }
-
-
-newRelative : Student -> Generator Student
-newRelative student =
-    case student of
-        Student { name } ->
-            Random.map5
-                (\vs is newname pro wep ->
-                    Student
-                        { num = 0
-                        , name = newname
-                        , pronouns = pro
-                        , weapontype = wep
-                        , visible = vs
-                        , invisible = is
-                        , bonds = Bonds.empty
-                        , quirks = []
-                        , value = 0
-                        }
-                )
-                newVisibleStats
-                newInvisibleStats
-                (Name.newRelativeName name)
-                newProns
-                newWepType
-                |> Random.andThen
-                    (\student2 ->
-                        genRandomQuirk student2
-                            |> Random.map
-                                (\q ->
-                                    case q of
-                                        Just qu ->
-                                            addQuirk student2 qu
-
-                                        Nothing ->
-                                            student2
-                                )
-                    )
