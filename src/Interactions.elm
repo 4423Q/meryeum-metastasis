@@ -46,6 +46,7 @@ type Result
 
 type Event
     = HangoutEvent (List Experience) (List Result)
+    | DateEvent (List Experience) (List Result)
 
 
 resultImpliesResults : Result -> List Result
@@ -79,6 +80,9 @@ resultsFromEvent ev =
         HangoutEvent _ xs ->
             xs
 
+        DateEvent _ xs ->
+            xs
+
 
 filterOutMe : Student -> List Experience -> List Experience
 filterOutMe id list =
@@ -106,55 +110,11 @@ interactionAndQualitiesToResults int exps =
                 |> filterOutMe id
                 |> genBondTarget
                 |> Random.map (Maybe.map (\targ -> BondsBroken id [ constructor targ ]))
-    in
-    case int of
-        Hangout _ ->
+
+        processExps func =
             exps
-                |> List.map
-                    (\( id, qual ) ->
-                        case qual of
-                            Amazing ->
-                                Random.andThen identity <|
-                                    Random.weighted ( 30, Random.constant Nothing )
-                                        [ ( 50, expsToBondFormed id Bonds.Friend )
-                                        , ( 20, expsToBondFormed id Bonds.Admires )
-                                        , ( 10, expsToBondFormed id Bonds.InLove )
-                                        , ( 10, expsToBondFormed id Bonds.Lustful )
-                                        ]
-
-                            Good ->
-                                Random.andThen identity <|
-                                    Random.weighted ( 40, Random.constant Nothing )
-                                        [ ( 40, expsToBondFormed id Bonds.Friend )
-                                        , ( 10, expsToBondFormed id Bonds.Admires )
-                                        , ( 10, expsToBondFormed id Bonds.Rival )
-                                        , ( 10, expsToBondFormed id Bonds.Lustful )
-                                        ]
-
-                            Average ->
-                                Random.andThen identity <|
-                                    Random.weighted ( 80, Random.constant Nothing )
-                                        [ ( 10, expsToBondFormed id Bonds.Friend )
-                                        , ( 5, expsToBondFormed id Bonds.Enemy )
-                                        , ( 5, expsToBondFormed id Bonds.Rival )
-                                        ]
-
-                            Bad ->
-                                Random.andThen identity <|
-                                    Random.weighted ( 60, Random.constant Nothing )
-                                        [ ( 10, expsToBondFormed id Bonds.Enemy )
-                                        , ( 30, expsToBondBroken id Bonds.Friend )
-                                        ]
-
-                            Awful ->
-                                Random.andThen identity <|
-                                    Random.weighted ( 50, expsToBondBroken id Bonds.Friend )
-                                        [ ( 50, expsToBondFormed id Bonds.Enemy ) ]
-                     {-
-                        _ ->
-                           Random.constant Nothing
-                     -}
-                    )
+                |> List.map func
+                |> List.map (Random.andThen identity)
                 |> List.foldr
                     (Random.map2
                         (\val2 acc2 ->
@@ -167,6 +127,60 @@ interactionAndQualitiesToResults int exps =
                         )
                     )
                     (Random.constant [])
+    in
+    case int of
+        Date _ ->
+            processExps
+                (\( id, qual ) ->
+                    case qual of
+                        Amazing ->
+                            Random.weighted ( 30, Random.constant Nothing )
+                                [ ( 30, expsToBondFormed id Bonds.Admires )
+                                , ( 30, expsToBondFormed id Bonds.Lustful )
+                                , ( 20, expsToBondFormed id Bonds.InLove )
+                                ]
+
+                        _ ->
+                            Random.constant (Random.constant Nothing)
+                )
+
+        Hangout _ ->
+            processExps
+                (\( id, qual ) ->
+                    case qual of
+                        Amazing ->
+                            Random.weighted ( 30, Random.constant Nothing )
+                                [ ( 50, expsToBondFormed id Bonds.Friend )
+                                , ( 20, expsToBondFormed id Bonds.Admires )
+                                , ( 10, expsToBondFormed id Bonds.InLove )
+                                , ( 10, expsToBondFormed id Bonds.Lustful )
+                                ]
+
+                        Good ->
+                            Random.weighted ( 40, Random.constant Nothing )
+                                [ ( 40, expsToBondFormed id Bonds.Friend )
+                                , ( 10, expsToBondFormed id Bonds.Admires )
+                                , ( 10, expsToBondFormed id Bonds.Rival )
+                                , ( 10, expsToBondFormed id Bonds.Lustful )
+                                ]
+
+                        Average ->
+                            Random.weighted ( 80, Random.constant Nothing )
+                                [ ( 10, expsToBondFormed id Bonds.Friend )
+                                , ( 5, expsToBondFormed id Bonds.Enemy )
+                                , ( 5, expsToBondFormed id Bonds.Rival )
+                                ]
+
+                        Bad ->
+                            Random.weighted ( 60, Random.constant Nothing )
+                                [ ( 10, expsToBondFormed id Bonds.Enemy )
+                                , ( 30, expsToBondBroken id Bonds.Friend )
+                                ]
+
+                        Awful ->
+                            Random.weighted ( 50, expsToBondBroken id Bonds.Friend )
+                                [ ( 50, expsToBondFormed id Bonds.Enemy ) ]
+                )
 
         _ ->
             Random.constant []

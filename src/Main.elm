@@ -5,7 +5,7 @@ import Browser
 import Classes
 import Debug
 import Html exposing (Html, a, button, div, text)
-import Html.Attributes exposing (href)
+import Html.Attributes exposing (href, style)
 import Html.Events exposing (onClick)
 import Interactions
 import Quirks
@@ -22,12 +22,18 @@ main =
 
 
 type alias Model =
-    StudentBody.StudentBody
+    { body : StudentBody.StudentBody, events : List Interactions.Event }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 6 StudentBody.empty) )
+    ( { body = StudentBody.empty
+      , events = []
+      }
+    , Random.generate
+        NewStudents
+        (StudentBody.addStudents 6 StudentBody.empty)
+    )
 
 
 type Msg
@@ -44,11 +50,11 @@ type Msg
     | GetNewRelative Int
 
 
-getNewRelative : Model -> Int -> Cmd Msg
-getNewRelative model id =
+getNewRelative : StudentBody.StudentBody -> Int -> Cmd Msg
+getNewRelative body id =
     let
         newStudentBody =
-            StudentBody.addRelative id model
+            StudentBody.addRelative id body
     in
     case newStudentBody of
         Nothing ->
@@ -59,56 +65,60 @@ getNewRelative model id =
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update msg ({ events, body } as model) =
     case msg of
         NoOp ->
             ( model, Cmd.none )
 
         MaybeNewStudents (Just x) ->
-            ( x, Cmd.none )
+            ( { model | body = x }, Cmd.none )
 
         MaybeNewStudents Nothing ->
             ( model, Cmd.none )
 
         NewStudents x ->
-            ( x, Cmd.none )
+            ( { model | body = x }, Cmd.none )
 
         NewEvents ( x, y ) ->
             case Debug.log "EVENTS" x of
                 _ ->
-                    ( y, Cmd.none )
+                    ( { events = List.append x events
+                      , body = y
+                      }
+                    , Cmd.none
+                    )
 
         NewInteractions x ->
             case Debug.log "Interactions" x of
                 _ ->
                     ( model, Cmd.none )
 
-        GetInteractions body student ->
-            case Debug.log "interactions" (StudentBody.findInteractions student body) of
+        GetInteractions b student ->
+            case Debug.log "interactions" (StudentBody.findInteractions student b) of
                 _ ->
                     ( model, Cmd.none )
 
-        GetAllInteractions body ->
-            case Debug.log "ALLINTERACTIONS" (StudentBody.findAllInteractions body) of
+        GetAllInteractions b ->
+            case Debug.log "ALLINTERACTIONS" (StudentBody.findAllInteractions b) of
                 _ ->
                     ( model, Cmd.none )
 
-        GenInteractions body ->
-            ( model, Random.generate NewInteractions (StudentBody.genWeeksInteractions model) )
+        GenInteractions _ ->
+            ( model, Random.generate NewInteractions (StudentBody.genWeeksInteractions body) )
 
-        GenEvents body ->
+        GenEvents _ ->
             ( model
             , Random.generate NewEvents
-                (StudentBody.genWeeksInteractions model
-                    |> Random.andThen (StudentBody.resolveInteractions model)
+                (StudentBody.genWeeksInteractions body
+                    |> Random.andThen (StudentBody.resolveInteractions body)
                 )
             )
 
         GetNewStudents n ->
-            ( model, Random.generate NewStudents (StudentBody.addStudents n model) )
+            ( model, Random.generate NewStudents (StudentBody.addStudents n body) )
 
         GetNewRelative id ->
-            ( model, getNewRelative model id )
+            ( model, getNewRelative body id )
 
 
 viewStats { danger, hot, sharp, extra } =
@@ -314,8 +324,47 @@ renderStudent body x =
         ]
 
 
+renderEvent : StudentBody.StudentBody -> Interactions.Event -> Html Msg
+renderEvent body event =
+    div []
+        [ case event of
+            Interactions.HangoutEvent xs rs ->
+                let
+                    participants =
+                        xs
+                            |> List.map (Tuple.mapFirst (StudentBody.getStudentById body))
+                            |> List.map
+                                (\( x, y ) ->
+                                    case x of
+                                        Just z ->
+                                            Just ( z, y )
+
+                                        Nothing ->
+                                            Nothing
+                                )
+                            |> List.foldr
+                                (\val acc ->
+                                    val
+                                        |> Maybe.map (\v2 -> v2 :: acc)
+                                        |> Maybe.withDefault acc
+                                )
+                                []
+                in
+                (participants |> List.map (\x -> x |> Tuple.first |> Student.getName) |> String.join ", ")
+                    ++ " hung out together"
+                    |> text
+
+            Interactions.DateEvent xs rs ->
+                text "IMPLEMENT THE DATE EVENT RENDERING"
+        ]
+
+
 view : Model -> Html Msg
-view y =
+view { events, body } =
+    let
+        y =
+            body
+    in
     div []
         [ a [ href "https://twitter.com/4423QQ" ] [ text "by edelweiss (4423)" ]
         , div []
@@ -323,12 +372,15 @@ view y =
             , button [ onClick (GenInteractions y) ] [ text "DEBUG ALL INTERACTIONS" ]
             , button [ onClick (GenEvents y) ] [ text "DEBUG MOVE TO FUTURE" ]
             ]
-        , div []
-            (StudentBody.asList y
-                |> List.sortBy (\x -> 1 - Student.getNumber x)
-                |> List.map (renderStudent y)
-                |> List.intersperse (div [] [ text "------" ])
-            )
+        , div [ style "display" "flex" ]
+            [ div []
+                (StudentBody.asList y
+                    |> List.sortBy (\x -> 1 - Student.getNumber x)
+                    |> List.map (renderStudent y)
+                    |> List.intersperse (div [] [ text "------" ])
+                )
+            , div [] (List.map (renderEvent body) events)
+            ]
         ]
 
 

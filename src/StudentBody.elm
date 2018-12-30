@@ -350,6 +350,21 @@ resolveInteractions body ints =
                     |> Random.andThen
                         (\( events, newbody ) ->
                             case val of
+                                Interactions.Date xs ->
+                                    Random.list (Set.size xs) (Interactions.distrnToQuality 2 1)
+                                        |> Random.andThen
+                                            (\qualities ->
+                                                let
+                                                    quals =
+                                                        List.Extra.zip (Set.toList xs) qualities
+                                                in
+                                                Interactions.interactionAndQualitiesToResults val quals
+                                                    |> Random.map
+                                                        (\results ->
+                                                            ( Interactions.DateEvent quals results :: events, newbody )
+                                                        )
+                                            )
+
                                 Interactions.Hangout xs ->
                                     Random.list (Set.size xs) (Interactions.distrnToQuality 2 1)
                                         |> Random.andThen
