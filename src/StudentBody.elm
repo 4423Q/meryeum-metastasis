@@ -77,10 +77,6 @@ updateStudentById updateFunc body id =
                     Nothing
 
 
-
--- recusiveIntBuilder : (Set Int -> Interactions.Interaction) ->  (Bonds.Bond -> Bool) -> Student.Student -> Student.Student -> StudentBody -> List Interactions.Interaction -> List Interactions.Interaction
-
-
 buildHangout : Student.Student -> Student.Student -> StudentBody -> List Int -> List Interactions.Interaction -> ( List Int, List Interactions.Interaction )
 buildHangout source target body handledSources existing =
     let
@@ -240,6 +236,22 @@ interactionsFromBond bond sS body =
                         ( _, v ) ->
                             v
 
+        Bonds.Admires x ->
+            let
+                target =
+                    getStudentById body x
+            in
+            case target of
+                Nothing ->
+                    []
+
+                Just tS ->
+                    case
+                        buildHangout sS tS body [] []
+                    of
+                        ( _, v ) ->
+                            List.append (buildDate sS tS body []) v
+
         Bonds.Rival x ->
             let
                 target =
@@ -292,39 +304,10 @@ findAllInteractions body =
         ]
 
 
-popRandInteraction : ( Float, Interactions.Interaction ) -> List ( Float, Interactions.Interaction ) -> Generator ( Interactions.Interaction, List ( Float, Interactions.Interaction ) )
-popRandInteraction int ints =
-    Random.weighted int ints
-        |> Random.map
-            (\choice ->
-                ( choice, List.filter (\x -> Tuple.second x /= choice) ints )
-            )
-
-
-pickNInteractions : Int -> List ( Float, Interactions.Interaction ) -> Generator (List Interactions.Interaction)
-pickNInteractions n ints =
-    case n of
-        0 ->
-            Random.constant []
-
-        _ ->
-            case ints of
-                [] ->
-                    Random.constant []
-
-                x :: xs ->
-                    popRandInteraction x xs
-                        |> Random.andThen
-                            (\( val, newList ) ->
-                                pickNInteractions (n - 1) newList
-                                    |> Random.map
-                                        (\otherPicks -> val :: otherPicks)
-                            )
-
-
 applyResults : StudentBody -> List Interactions.Result -> StudentBody
 applyResults body results =
     results
+        |> List.concatMap Interactions.resultImpliesResults
         |> List.foldr
             (\result acc ->
                 case result of
@@ -340,6 +323,14 @@ applyResults body results =
 
                                         Nothing ->
                                             acc2
+                                )
+                                acc
+
+                    Interactions.BondsBroken source bonds ->
+                        bonds
+                            |> List.foldr
+                                (\bond acc2 ->
+                                    Maybe.withDefault acc2 (breakBondToStudentById bond source acc)
                                 )
                                 acc
 
@@ -415,7 +406,7 @@ genWeeksInteractions body =
         otherInteractions =
             possibleInteractions |> List.filter (\x -> not <| isClassInt x) |> List.map (\x -> ( Interactions.getChance infoGetter x, x ))
     in
-    pickNInteractions 10 otherInteractions
+    Util.popNRandom 10 otherInteractions
         |> Random.map
             (\x -> List.append x classInteractions)
 
@@ -489,7 +480,8 @@ genRandomNonRelativeBond body =
                             ( 50, Bonds.Friend a )
                             [ ( 30, Bonds.Enemy a )
                             , ( 20, Bonds.Rival a )
-                            , ( 10, Bonds.Lustful a )
+                            , ( 15, Bonds.Admires a )
+                            , ( 5, Bonds.Lustful a )
                             , ( 5, Bonds.InLove a )
                             ]
 
@@ -518,74 +510,135 @@ addStudents n studentBody =
                     (genStudent studentBody)
 
 
+breakBondToStudentById : Bonds.Bond -> Int -> StudentBody -> Maybe StudentBody
+breakBondToStudentById bond id body =
+    let
+        targetId =
+            Bonds.getBondId bond
+
+        sourceStudentM =
+            getStudentById body id
+
+        targetStudentM =
+            getStudentById body (Bonds.getBondId bond)
+    in
+    Maybe.andThen identity <|
+        Maybe.map2
+            (\sourceStudent targetStudent ->
+                let
+                    sourceBonds =
+                        Debug.log "SOURCEBONDS" (Student.getBonds sourceStudent)
+                in
+                case List.member (Debug.log "BONDTOBREAK" bond) sourceBonds of
+                    False ->
+                        Nothing
+
+                    True ->
+                        let
+                            comm =
+                                Bonds.isCommutative bond
+
+                            ass =
+                                Bonds.isAssociative bond
+
+                            target =
+                                Bonds.getBondId bond
+
+                            updatedBody =
+                                updateStudentById (Student.updateBonds (sourceBonds |> List.filter ((/=) bond))) body id
+                        in
+                        if not comm then
+                            updatedBody
+
+                        else
+                            -- TODO implement the assoc case
+                            Debug.log "UPDATEDBODY" updatedBody
+                                |> Maybe.map
+                                    (\usb2 ->
+                                        case breakBondToStudentById (Debug.log "Trying to break a bond" (Bonds.changeBondId id bond)) target usb2 of
+                                            Just y ->
+                                                y
+
+                                            Nothing ->
+                                                usb2
+                                    )
+            )
+            sourceStudentM
+            targetStudentM
+
+
 addBondToStudentById : Bonds.Bond -> Int -> StudentBody -> Maybe StudentBody
 addBondToStudentById bond id body =
-    case Bonds.getBondId bond == id of
-        True ->
-            Just body
+    let
+        targetId =
+            Bonds.getBondId bond
 
-        False ->
+        sourceStudentM =
             getStudentById body id
-                |> Maybe.map
-                    (\s ->
-                        Student.getBonds s
-                            |> List.any ((==) bond)
-                    )
-                |> Maybe.andThen
-                    (\hasBondAlready ->
-                        case hasBondAlready of
-                            True ->
-                                Just body
 
+        targetStudentM =
+            getStudentById body (Bonds.getBondId bond)
+    in
+    Maybe.andThen identity <|
+        Maybe.map2
+            (\sourceStudent targetStudent ->
+                case Bonds.checkBondIsValidToAdd (Student.getBonds sourceStudent) (Student.getBonds targetStudent) bond id of
+                    False ->
+                        Nothing
+
+                    True ->
+                        let
+                            comm =
+                                Bonds.isCommutative bond
+
+                            ass =
+                                Bonds.isAssociative bond
+
+                            target =
+                                Bonds.getBondId bond
+
+                            updatedStudentBody =
+                                updateStudentById (Student.addBond bond) body id
+                        in
+                        case comm of
                             False ->
-                                let
-                                    comm =
-                                        Bonds.isCommutative bond
+                                updatedStudentBody
 
-                                    ass =
-                                        Bonds.isAssociative bond
+                            True ->
+                                updatedStudentBody
+                                    |> Maybe.andThen
+                                        (\usb2 -> updateStudentById (Student.addBond (Bonds.changeBondId id bond)) usb2 target)
+                                    |> Maybe.andThen
+                                        (\suBody ->
+                                            case ass of
+                                                False ->
+                                                    Just suBody
 
-                                    target =
-                                        Bonds.getBondId bond
+                                                True ->
+                                                    getStudentById suBody target
+                                                        |> Maybe.map Student.getBonds
+                                                        |> Maybe.map
+                                                            (List.filter (Bonds.isOfSameType bond))
+                                                        |> Maybe.map
+                                                            (List.foldr
+                                                                (\val acc ->
+                                                                    case
+                                                                        addBondToStudentById (Bonds.changeBondId id bond)
+                                                                            (Bonds.getBondId val)
+                                                                            acc
+                                                                    of
+                                                                        Just x ->
+                                                                            x
 
-                                    updatedStudentBody =
-                                        updateStudentById (Student.addBond bond) body id
-                                in
-                                case comm of
-                                    False ->
-                                        updatedStudentBody
-
-                                    True ->
-                                        updatedStudentBody
-                                            |> Maybe.andThen
-                                                (\usb2 -> updateStudentById (Student.addBond (Bonds.changeBondId id bond)) usb2 target)
-                                            |> Maybe.andThen
-                                                (\suBody ->
-                                                    case ass of
-                                                        False ->
-                                                            Just suBody
-
-                                                        --Implement this
-                                                        True ->
-                                                            getStudentById suBody target
-                                                                |> Maybe.map
-                                                                    (\targetStudent -> Student.getBonds targetStudent)
-                                                                |> Maybe.map
-                                                                    (List.filter (Bonds.isOfSameType bond))
-                                                                |> Maybe.andThen
-                                                                    (List.foldr
-                                                                        (\val ->
-                                                                            Maybe.andThen
-                                                                                (\b ->
-                                                                                    addBondToStudentById (Bonds.changeBondId id bond)
-                                                                                        (Bonds.getBondId val)
-                                                                                        b
-                                                                                )
-                                                                        )
-                                                                        (Just suBody)
-                                                                    )
-                                                )
-                    )
+                                                                        Nothing ->
+                                                                            acc
+                                                                )
+                                                                suBody
+                                                            )
+                                        )
+            )
+            sourceStudentM
+            targetStudentM
 
 
 genRandomRelative : StudentBody -> Generator (Maybe ( Student.Student, StudentBody ))
@@ -629,7 +682,7 @@ genRelative target body =
                     ( addedStudent, newBody ) =
                         addStudent student body
                 in
-                addBondToStudentById bond (Student.getNumber addedStudent) newBody
+                Debug.log "addingBondToStudentForRelative" (addBondToStudentById (Debug.log "BOND" bond) (Student.getNumber addedStudent) newBody)
                     |> Maybe.map
                         (\body2 -> ( addedStudent, body2 ))
             )
@@ -648,7 +701,3 @@ addRelative n ((StudentBody students lastNum) as studentBody) =
 getBondTarget : Bonds.Bond -> StudentBody -> Maybe Student.Student
 getBondTarget bond ((StudentBody students _) as studentBody) =
     getStudentById studentBody (Bonds.getBondId bond)
-
-
-
---addBond : Int -> Int -> Student.Bond -> StudentBody -> Generator StudentBody

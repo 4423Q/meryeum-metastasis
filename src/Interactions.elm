@@ -1,4 +1,4 @@
-module Interactions exposing (Event(..), Interaction(..), Quality(..), Result(..), addMember, distrnToQuality, equal, getChance, interactionAndQualitiesToResults, resultsFromEvent)
+module Interactions exposing (Event(..), Interaction(..), Quality(..), Result(..), addMember, distrnToQuality, equal, getChance, interactionAndQualitiesToResults, resultImpliesResults, resultsFromEvent)
 
 import Array
 import Bonds
@@ -48,6 +48,31 @@ type Event
     = HangoutEvent (List Experience) (List Result)
 
 
+resultImpliesResults : Result -> List Result
+resultImpliesResults result =
+    let
+        bondForms std bond =
+            case bond of
+                Bonds.InLove x ->
+                    [ BondsBroken std [ Bonds.Admires x ], result ]
+
+                Bonds.Admires x ->
+                    [ BondsBroken std [ Bonds.Enemy x ], result ]
+
+                Bonds.Enemy x ->
+                    [ BondsBroken std [ Bonds.Admires x ], result ]
+
+                _ ->
+                    [ result ]
+    in
+    case result of
+        BondsFormed x xs ->
+            xs |> List.concatMap (bondForms x)
+
+        _ ->
+            [ result ]
+
+
 resultsFromEvent : Event -> List Result
 resultsFromEvent ev =
     case ev of
@@ -69,6 +94,19 @@ genBondTarget exps =
 
 interactionAndQualitiesToResults : Interaction -> List Experience -> Generator (List Result)
 interactionAndQualitiesToResults int exps =
+    let
+        expsToBondFormed id constructor =
+            exps
+                |> filterOutMe id
+                |> genBondTarget
+                |> Random.map (Maybe.map (\targ -> BondsFormed id [ constructor targ ]))
+
+        expsToBondBroken id constructor =
+            exps
+                |> filterOutMe id
+                |> genBondTarget
+                |> Random.map (Maybe.map (\targ -> BondsBroken id [ constructor targ ]))
+    in
     case int of
         Hangout _ ->
             exps
@@ -77,25 +115,45 @@ interactionAndQualitiesToResults int exps =
                         case qual of
                             Amazing ->
                                 Random.andThen identity <|
-                                    Random.weighted ( 80, Random.constant Nothing )
-                                        [ ( 10
-                                          , exps
-                                                |> filterOutMe id
-                                                |> genBondTarget
-                                                |> Random.map
-                                                    (Maybe.map (\targ -> BondsFormed id [ Bonds.InLove targ ]))
-                                          )
-                                        , ( 10
-                                          , exps
-                                                |> filterOutMe id
-                                                |> genBondTarget
-                                                |> Random.map
-                                                    (Maybe.map (\targ -> BondsFormed id [ Bonds.Lustful targ ]))
-                                          )
+                                    Random.weighted ( 30, Random.constant Nothing )
+                                        [ ( 50, expsToBondFormed id Bonds.Friend )
+                                        , ( 20, expsToBondFormed id Bonds.Admires )
+                                        , ( 10, expsToBondFormed id Bonds.InLove )
+                                        , ( 10, expsToBondFormed id Bonds.Lustful )
                                         ]
 
-                            _ ->
-                                Random.constant Nothing
+                            Good ->
+                                Random.andThen identity <|
+                                    Random.weighted ( 40, Random.constant Nothing )
+                                        [ ( 40, expsToBondFormed id Bonds.Friend )
+                                        , ( 10, expsToBondFormed id Bonds.Admires )
+                                        , ( 10, expsToBondFormed id Bonds.Rival )
+                                        , ( 10, expsToBondFormed id Bonds.Lustful )
+                                        ]
+
+                            Average ->
+                                Random.andThen identity <|
+                                    Random.weighted ( 80, Random.constant Nothing )
+                                        [ ( 10, expsToBondFormed id Bonds.Friend )
+                                        , ( 5, expsToBondFormed id Bonds.Enemy )
+                                        , ( 5, expsToBondFormed id Bonds.Rival )
+                                        ]
+
+                            Bad ->
+                                Random.andThen identity <|
+                                    Random.weighted ( 60, Random.constant Nothing )
+                                        [ ( 10, expsToBondFormed id Bonds.Enemy )
+                                        , ( 30, expsToBondBroken id Bonds.Friend )
+                                        ]
+
+                            Awful ->
+                                Random.andThen identity <|
+                                    Random.weighted ( 50, expsToBondBroken id Bonds.Friend )
+                                        [ ( 50, expsToBondFormed id Bonds.Enemy ) ]
+                     {-
+                        _ ->
+                           Random.constant Nothing
+                     -}
                     )
                 |> List.foldr
                     (Random.map2

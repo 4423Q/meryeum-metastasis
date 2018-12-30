@@ -1,4 +1,19 @@
-module Bonds exposing (Bond(..), Bonds(..), RelativeType(..), add, asList, changeBondId, empty, getBondId, isAssociative, isCommutative, isOfSameType)
+module Bonds exposing
+    ( Bond(..)
+    , Bonds(..)
+    , RelativeType(..)
+    , add
+    , asList
+    , changeBondId
+    , checkBondIsValidToAdd
+    , empty
+    , fromList
+    , getBondId
+    , isAssociative
+    , isCommutative
+    , isOfSameType
+    , isTargetCompatible
+    )
 
 
 type RelativeType
@@ -10,9 +25,43 @@ type Bond
     = Friend Int
     | InLove Int
     | Lustful Int
+    | Admires Int
     | Enemy Int
     | Rival Int
     | Relative RelativeType Int
+
+
+checkBondIsValidToAdd : List Bond -> List Bond -> Bond -> Int -> Bool
+checkBondIsValidToAdd sourceBonds targetBonds bond sourceId =
+    not (List.member bond sourceBonds)
+        && isTargetCompatible targetBonds bond sourceId
+        && not (getBondId bond == sourceId)
+
+
+isTargetCompatible : List Bond -> Bond -> Int -> Bool
+isTargetCompatible targetBonds bond sourceId =
+    let
+        isRelative =
+            List.any
+                (\b ->
+                    case b of
+                        Relative _ source ->
+                            True
+
+                        _ ->
+                            False
+                )
+                targetBonds
+    in
+    case bond of
+        InLove _ ->
+            not isRelative
+
+        Lustful _ ->
+            not isRelative
+
+        _ ->
+            True
 
 
 isCommutative : Bond -> Bool
@@ -30,6 +79,9 @@ isCommutative bond =
         Lustful _ ->
             False
 
+        Admires _ ->
+            False
+
         Rival _ ->
             True
 
@@ -44,6 +96,9 @@ isAssociative bond =
             False
 
         InLove _ ->
+            False
+
+        Admires _ ->
             False
 
         Enemy _ ->
@@ -80,6 +135,9 @@ isOfSameType a b =
         ( Lustful _, Lustful _ ) ->
             True
 
+        ( Admires _, Admires _ ) ->
+            True
+
         ( Relative Sibling _, Relative Sibling _ ) ->
             True
 
@@ -113,6 +171,9 @@ getBondId bond =
         Lustful x ->
             x
 
+        Admires x ->
+            x
+
 
 changeBondId : Int -> Bond -> Bond
 changeBondId id bond =
@@ -125,6 +186,9 @@ changeBondId id bond =
 
         Lustful _ ->
             Lustful id
+
+        Admires _ ->
+            Admires id
 
         Enemy _ ->
             Enemy id
@@ -143,6 +207,11 @@ type Bonds
 empty : Bonds
 empty =
     Bonds []
+
+
+fromList : List Bond -> Bonds
+fromList bonds =
+    Bonds bonds
 
 
 asList : Bonds -> List Bond

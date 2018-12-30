@@ -27,7 +27,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 100 StudentBody.empty) )
+    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 6 StudentBody.empty) )
 
 
 type Msg
@@ -235,6 +235,9 @@ bondToString source target bond =
 
         Bonds.Lustful _ ->
             sFriendly ++ " gets flustered by " ++ tName ++ "."
+
+        Bonds.Admires _ ->
+            String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.deplural sProns.subj "thinks" ++ " " ++ tName ++ " is like... really great."
 
 
 renderBond : Student.Student -> ( Bonds.Bond, Student.Student ) -> Html Msg

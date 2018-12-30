@@ -1,8 +1,38 @@
-module Util exposing (ana, deplural, genUniformFromArray, genUniformFromArray2, hasHave, isare)
+module Util exposing (ana, deplural, genUniformFromArray, genUniformFromArray2, hasHave, isare, popNRandom, popRand)
 
 import Array
 import Random exposing (Generator)
 import String
+
+
+popRand : ( Float, a ) -> List ( Float, a ) -> Generator ( a, List ( Float, a ) )
+popRand first rest =
+    Random.weighted first rest
+        |> Random.map
+            (\choice ->
+                ( choice, List.filter (\x -> Tuple.second x /= choice) (first :: rest) )
+            )
+
+
+popNRandom : Int -> List ( Float, a ) -> Generator (List a)
+popNRandom n ints =
+    case n of
+        0 ->
+            Random.constant []
+
+        _ ->
+            case ints of
+                [] ->
+                    Random.constant []
+
+                x :: xs ->
+                    popRand x xs
+                        |> Random.andThen
+                            (\( val, newList ) ->
+                                popNRandom (n - 1) newList
+                                    |> Random.map
+                                        (\otherPicks -> val :: otherPicks)
+                            )
 
 
 isare : String -> String

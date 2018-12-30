@@ -15,6 +15,7 @@ module Student exposing
     , newRelative
     , newStudent
     , setNumber
+    , updateBonds
     )
 
 import Array
@@ -123,6 +124,13 @@ addBond bond student =
     case student of
         Student ({ bonds } as std) ->
             Student { std | bonds = Bonds.add bond bonds }
+
+
+updateBonds : List Bonds.Bond -> Student -> Student
+updateBonds newBonds student =
+    case student of
+        Student ({ bonds } as std) ->
+            Student { std | bonds = Bonds.fromList newBonds }
 
 
 getBonds : Student -> List Bonds.Bond
