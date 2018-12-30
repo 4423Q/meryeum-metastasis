@@ -1,4 +1,4 @@
-module Interactions exposing (Event(..), Interaction(..), Quality(..), Result(..), addMember, distrnToQuality, equal, getChance, interactionAndQualitiesToResults)
+module Interactions exposing (Event(..), Interaction(..), Quality(..), Result(..), addMember, distrnToQuality, equal, getChance, interactionAndQualitiesToResults, resultsFromEvent)
 
 import Array
 import Bonds
@@ -46,6 +46,13 @@ type Result
 
 type Event
     = HangoutEvent (List Experience) (List Result)
+
+
+resultsFromEvent : Event -> List Result
+resultsFromEvent ev =
+    case ev of
+        HangoutEvent _ xs ->
+            xs
 
 
 filterOutMe : Student -> List Experience -> List Experience

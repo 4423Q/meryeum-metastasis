@@ -23,6 +23,7 @@ namesArray =
         , "Algernon"
         , "Alpha"
         , "Altar"
+        , "Refrain"
         , "Alvarez"
         , "Amar"
         , "Amuro"

@@ -322,6 +322,33 @@ pickNInteractions n ints =
                             )
 
 
+applyResults : StudentBody -> List Interactions.Result -> StudentBody
+applyResults body results =
+    results
+        |> List.foldr
+            (\result acc ->
+                case result of
+                    Interactions.BondsFormed source bonds ->
+                        bonds
+                            |> List.foldr
+                                (\bond acc2 ->
+                                    case
+                                        addBondToStudentById bond source acc
+                                    of
+                                        Just x ->
+                                            x
+
+                                        Nothing ->
+                                            acc2
+                                )
+                                acc
+
+                    _ ->
+                        acc
+            )
+            body
+
+
 resolveInteractions : StudentBody -> List Interactions.Interaction -> Generator ( List Interactions.Event, StudentBody )
 resolveInteractions body ints =
     -- Eventually do a thing to decide how interactions go based on stats, but for now fuck it
@@ -353,6 +380,7 @@ resolveInteractions body ints =
     in
     Random.List.shuffle ints
         |> Random.andThen (List.foldr processInteraction (Random.constant ( [], body )))
+        |> Random.map (\( events, body2 ) -> ( events, applyResults body2 (List.concatMap Interactions.resultsFromEvent events) ))
 
 
 genWeeksInteractions : StudentBody -> Generator (List Interactions.Interaction)
