@@ -16,13 +16,18 @@ namesArray =
         , "Absolute"
         , "Addax"
         , "Aegis"
+        , "Sappho"
         , "Aether"
+        , "Silver"
+        , "Ai"
         , "Algernon"
         , "Alpha"
         , "Altar"
         , "Alvarez"
         , "Amar"
         , "Amuro"
+        , "Tharsis"
+        , "Terra"
         , "Apex"
         , "April"
         , "Art"
@@ -43,6 +48,8 @@ namesArray =
         , "Bravo"
         , "Breaks"
         , "Breeze"
+        , "Keter"
+        , "Phi"
         , "Bridge"
         , "Brink"
         , "Cadenza"
@@ -138,6 +145,7 @@ namesArray =
         , "January"
         , "Jazz"
         , "Jennifer"
+        , "Joon"
         , "Jorge"
         , "Journal"
         , "Joven"
@@ -200,6 +208,7 @@ namesArray =
         , "Oratorio"
         , "Oskar"
         , "Palace"
+        , "Park"
         , "Pathos"
         , "Pechen"
         , "Peel"
@@ -223,6 +232,7 @@ namesArray =
         , "Rachael"
         , "Rainy"
         , "Rashid"
+        , "Reclaim"
         , "Redondo"
         , "Reed"
         , "Regrets"
@@ -266,6 +276,7 @@ namesArray =
         , "Softly"
         , "Solace"
         , "Solari"
+        , "Song"
         , "Sonon"
         , "Sora"
         , "Sorrel"
@@ -292,6 +303,7 @@ namesArray =
         , "Underhand"
         , "Untimely"
         , "Uratora"
+        , "Vidal"
         , "Villalobos"
         , "Vital"
         , "Void"
@@ -315,6 +327,32 @@ namesArray =
         , "Zhou"
         , "k"
         , "ϱ"
+        ]
+
+
+newConnector : Generator Connector
+newConnector =
+    Random.weighted
+        ( 110, BreakingNonCombinator " " )
+        [ ( 10, NonBreakingCombinator "-" )
+        , ( 5, BreakingNonCombinator "-" )
+        , ( 5, NonBreakingCombinator "'" )
+        , ( 5, BreakingNonCombinator "'" )
+        , ( 5, BreakingCombinator " d'" )
+        , ( 5, BreakingCombinator " la " )
+        , ( 5, NonBreakingCombinator " of " )
+        , ( 5, BreakingCombinator " of " )
+        , ( 5, BreakingNonCombinator " of " )
+        , ( 5, BreakingCombinator " v'" )
+        , ( 5, NonBreakingCombinator " v'" )
+        , ( 5, BreakingCombinator " de " )
+        , ( 2, BreakingCombinator " whist-" )
+        , ( 2, BreakingCombinator " van " )
+        , ( 2, BreakingCombinator " von " )
+        , ( 1, NonBreakingCombinator " the " )
+        , ( 1, BreakingNonCombinator ", " )
+        , ( 1, BreakingNonCombinator " but " )
+        , ( 1, BreakingNonCombinator " with " )
         ]
 
 
@@ -446,30 +484,6 @@ toGivenString name =
 
                 Nothing ->
                     "ERROR Getting given name"
-
-
-newConnector : Generator Connector
-newConnector =
-    Random.weighted
-        ( 110, BreakingNonCombinator " " )
-        [ ( 10, NonBreakingCombinator "-" )
-        , ( 5, BreakingNonCombinator "-" )
-        , ( 5, NonBreakingCombinator "'" )
-        , ( 5, BreakingNonCombinator "'" )
-        , ( 5, BreakingCombinator " d'" )
-        , ( 5, BreakingCombinator " la " )
-        , ( 5, NonBreakingCombinator " of " )
-        , ( 5, BreakingCombinator " of " )
-        , ( 5, BreakingNonCombinator " of " )
-        , ( 5, BreakingCombinator " v'" )
-        , ( 5, NonBreakingCombinator " v'" )
-        , ( 5, BreakingCombinator " de " )
-        , ( 2, BreakingCombinator " whist-" )
-        , ( 1, NonBreakingCombinator " the " )
-        , ( 1, BreakingNonCombinator ", " )
-        , ( 1, BreakingNonCombinator " but " )
-        , ( 1, BreakingNonCombinator " with " )
-        ]
 
 
 type Connector

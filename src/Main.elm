@@ -3,9 +3,11 @@ module Main exposing (Model, main)
 import Bonds
 import Browser
 import Classes
+import Debug
 import Html exposing (Html, a, button, div, text)
 import Html.Attributes exposing (href)
 import Html.Events exposing (onClick)
+import Interactions
 import Quirks
 import Random
 import String.Extra
@@ -25,13 +27,19 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 6 StudentBody.empty) )
+    ( StudentBody.empty, Random.generate NewStudents (StudentBody.addStudents 100 StudentBody.empty) )
 
 
 type Msg
     = NoOp
+    | GetInteractions StudentBody.StudentBody Student.Student
+    | GetAllInteractions StudentBody.StudentBody
+    | GenInteractions StudentBody.StudentBody
+    | GenEvents StudentBody.StudentBody
     | MaybeNewStudents (Maybe StudentBody.StudentBody)
     | NewStudents StudentBody.StudentBody
+    | NewInteractions (List Interactions.Interaction)
+    | NewEvents ( List Interactions.Event, StudentBody.StudentBody )
     | GetNewStudents Int
     | GetNewRelative Int
 
@@ -64,6 +72,37 @@ update msg model =
 
         NewStudents x ->
             ( x, Cmd.none )
+
+        NewEvents ( x, y ) ->
+            case Debug.log "EVENTS" x of
+                _ ->
+                    ( y, Cmd.none )
+
+        NewInteractions x ->
+            case Debug.log "Interactions" x of
+                _ ->
+                    ( model, Cmd.none )
+
+        GetInteractions body student ->
+            case Debug.log "interactions" (StudentBody.findInteractions student body) of
+                _ ->
+                    ( model, Cmd.none )
+
+        GetAllInteractions body ->
+            case Debug.log "ALLINTERACTIONS" (StudentBody.findAllInteractions body) of
+                _ ->
+                    ( model, Cmd.none )
+
+        GenInteractions body ->
+            ( model, Random.generate NewInteractions (StudentBody.genWeeksInteractions model) )
+
+        GenEvents body ->
+            ( model
+            , Random.generate NewEvents
+                (StudentBody.genWeeksInteractions model
+                    |> Random.andThen (StudentBody.resolveInteractions model)
+                )
+            )
 
         GetNewStudents n ->
             ( model, Random.generate NewStudents (StudentBody.addStudents n model) )
@@ -194,6 +233,9 @@ bondToString source target bond =
         Bonds.Rival _ ->
             tName ++ " has a rivalry with " ++ sFriendly ++ "."
 
+        Bonds.Lustful _ ->
+            sFriendly ++ " gets flustered by " ++ tName ++ "."
+
 
 renderBond : Student.Student -> ( Bonds.Bond, Student.Student ) -> Html Msg
 renderBond studentSource ( bond, studentTarget ) =
@@ -261,6 +303,11 @@ renderStudent body x =
             ]
         , div [] (List.map (renderBond x) bonds)
         , div [] (List.map (renderQuirk x) quirks)
+        , div []
+            [ button
+                [ onClick (GetInteractions body x) ]
+                [ text "DEBUG INTERACTIONS" ]
+            ]
         ]
 
 
@@ -268,7 +315,11 @@ view : Model -> Html Msg
 view y =
     div []
         [ a [ href "https://twitter.com/4423QQ" ] [ text "by edelweiss (4423)" ]
-        , div [] [ button [ onClick (GetNewStudents 1) ] [ text "NEW PERSON !!!!" ] ]
+        , div []
+            [ button [ onClick (GetNewStudents 1) ] [ text "NEW PERSON !!!!" ]
+            , button [ onClick (GenInteractions y) ] [ text "DEBUG ALL INTERACTIONS" ]
+            , button [ onClick (GenEvents y) ] [ text "DEBUG MOVE TO FUTURE" ]
+            ]
         , div []
             (StudentBody.asList y
                 |> List.sortBy (\x -> 1 - Student.getNumber x)

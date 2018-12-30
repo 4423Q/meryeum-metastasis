@@ -9,6 +9,7 @@ type RelativeType
 type Bond
     = Friend Int
     | InLove Int
+    | Lustful Int
     | Enemy Int
     | Rival Int
     | Relative RelativeType Int
@@ -24,6 +25,9 @@ isCommutative bond =
             False
 
         Enemy _ ->
+            False
+
+        Lustful _ ->
             False
 
         Rival _ ->
@@ -48,6 +52,9 @@ isAssociative bond =
         Rival _ ->
             False
 
+        Lustful _ ->
+            False
+
         Relative Sibling _ ->
             True
 
@@ -68,6 +75,9 @@ isOfSameType a b =
             True
 
         ( Rival _, Rival _ ) ->
+            True
+
+        ( Lustful _, Lustful _ ) ->
             True
 
         ( Relative Sibling _, Relative Sibling _ ) ->
@@ -100,20 +110,26 @@ getBondId bond =
         Relative _ x ->
             x
 
+        Lustful x ->
+            x
+
 
 changeBondId : Int -> Bond -> Bond
 changeBondId id bond =
     case bond of
-        Friend x ->
+        Friend _ ->
             Friend id
 
-        InLove x ->
+        InLove _ ->
             InLove id
 
-        Enemy x ->
+        Lustful _ ->
+            Lustful id
+
+        Enemy _ ->
             Enemy id
 
-        Rival x ->
+        Rival _ ->
             Rival id
 
         Relative y x ->
