@@ -13,6 +13,7 @@ module Interactions exposing
     , fromBond
     , genRandomEvent
     , getChance
+    , getResultTarget
     , interactionAndQualitiesToResults
     , interactionsToEvents
     , qualityToString
@@ -62,6 +63,28 @@ type alias Experience =
     ( Student, Quality )
 
 
+getResultTarget : Result -> Student
+getResultTarget res =
+    case res of
+        BondsBroken x _ ->
+            x
+
+        BondsFormed x _ ->
+            x
+
+        StatsChange x _ ->
+            x
+
+        InvisStatsChange x _ ->
+            x
+
+        NameChange x _ ->
+            x
+
+        PronounChange x _ ->
+            x
+
+
 type Result
     = BondsBroken Student (List Bonds.Bond)
     | BondsFormed Student (List Bonds.Bond)
@@ -81,13 +104,17 @@ type Event
     = HangoutEvent (List Experience) (List Result)
     | DateEvent (List Experience) (List Result)
     | TransitionEvent Student Transition (List Result)
+    | ClassEvent Classes.Class (List Result)
 
 
 type alias StudentInfo =
-    { bonds : List Bonds.Bond
+    { id : Student
+    , bonds : List Bonds.Bond
     , quirks : List Quirks.Quirk
     , name : Name.Name
     , pronouns : Pronouns.Pronoun
+    , visible : Stats.VisibleStats
+    , invisible : Stats.InvisibleStats
     }
 
 
@@ -179,6 +206,20 @@ equal a b =
 -- Useful processing functions
 
 
+areRelatives : StudentInfo -> StudentInfo -> Bool
+areRelatives a b =
+    a.bonds
+        |> List.any
+            (\bond ->
+                case bond of
+                    Bonds.Relative _ x ->
+                        x == b.id
+
+                    _ ->
+                        False
+            )
+
+
 resultImpliesResults : Result -> List Result
 resultImpliesResults result =
     let
@@ -192,6 +233,9 @@ resultImpliesResults result =
 
                 Bonds.Enemy x ->
                     [ BondsBroken std [ Bonds.Admires x ], result ]
+
+                Bonds.Friend x ->
+                    [ BondsBroken std [ Bonds.Enemy x ], result ]
 
                 _ ->
                     [ result ]
@@ -216,6 +260,9 @@ resultsFromEvent ev =
         TransitionEvent _ _ xs ->
             xs
 
+        ClassEvent _ xs ->
+            xs
+
 
 filterOutMe : Student -> List Experience -> List Experience
 filterOutMe id list =
@@ -229,9 +276,95 @@ genBondTarget exps =
         |> Random.map Tuple.first
 
 
+resultsFromClass : InfoGetter -> Set Student -> Generator (List Result)
+resultsFromClass infoGetter students =
+    let
+        participants =
+            Set.toList students
+                |> List.map (\x -> infoGetter x |> Maybe.map (\y -> ( x, y )))
+                |> Util.removeNothings
+    in
+    let
+        everyelse id =
+            participants
+                |> List.filter (Tuple.first >> (/=) id)
+
+        hottest =
+            -- Sort in inverse order so we get the hottest and not the least hot
+            List.take 5 (List.sortBy (\( _, y ) -> 10 - y.visible.hot) participants)
+
+        lustfulChance targetInfo sourceInfo =
+            if areRelatives targetInfo sourceInfo then
+                0
+
+            else if List.member Quirks.ExtraHot targetInfo.quirks then
+                10000
+
+            else
+                (toFloat (targetInfo.visible.hot * sourceInfo.invisible.horny) / 25) * 0.05
+
+        sharpest =
+            List.take 5 (List.sortBy (\( _, y ) -> 10 - y.visible.sharp) participants)
+
+        admirationChance targetInfo sourceInfo =
+            (toFloat targetInfo.visible.sharp / 5) * 0.2
+
+        mostfun =
+            List.take 5
+                (List.sortBy
+                    (\( _, y ) ->
+                        10 - y.invisible.diversion
+                    )
+                    participants
+                )
+
+        howmanytotake info =
+            clamp 1 10 ((info.visible.extra - 2) // 2)
+    in
+    Random.map List.concat <|
+        Util.flattenGen
+            [ hottest
+                |> List.map
+                    (\( id, info ) ->
+                        everyelse id
+                            |> List.take (howmanytotake info)
+                            |> List.map
+                                (\( sId, sInfo ) ->
+                                    Random.weighted
+                                        ( 1, Nothing )
+                                        [ ( lustfulChance info sInfo, Just (BondsFormed sId [ Bonds.Lustful id ]) ) ]
+                                )
+                            |> Util.flattenGen
+                    )
+                |> Util.flattenGen
+                |> Random.map List.concat
+                |> Random.map Util.removeNothings
+            , sharpest
+                |> List.map
+                    (\( id, info ) ->
+                        everyelse id
+                            |> List.take (howmanytotake info)
+                            |> List.map
+                                (\( sId, sInfo ) ->
+                                    Random.weighted
+                                        ( 1, Nothing )
+                                        [ ( admirationChance info sInfo, Just (BondsFormed sId [ Bonds.Admires id ]) ) ]
+                                )
+                            |> Util.flattenGen
+                    )
+                |> Util.flattenGen
+                |> Random.map List.concat
+                |> Random.map Util.removeNothings
+            ]
+
+
 resolveInteraction : InfoGetter -> Interaction -> Generator (List Event)
 resolveInteraction infoGetter int =
     case int of
+        Class xs c ->
+            resultsFromClass infoGetter xs
+                |> Random.map (ClassEvent c >> List.singleton)
+
         Date xs ->
             Random.list (Set.size xs) (distrnToQuality 2 1)
                 |> Random.andThen
@@ -257,7 +390,7 @@ resolveInteraction infoGetter int =
                         in
                         interactionAndQualitiesToResults int quals
                             |> Random.map
-                                (DateEvent quals >> List.singleton)
+                                (HangoutEvent quals >> List.singleton)
                     )
 
         _ ->
@@ -453,8 +586,8 @@ fightModifier bond =
             0
 
 
-buildRecursiveInteraction : (Bonds.Bond -> Bool) -> (Set Student -> Interaction) -> InfoGetter -> Student -> Student -> List Int -> List Interaction -> ( List Int, List Interaction )
-buildRecursiveInteraction targBondFilter intBuilder infoGetter sourceId targetId handledSources existing =
+buildRecursiveInteraction : (StudentInfo -> StudentInfo -> Bool) -> (Bonds.Bond -> Bool) -> (Set Student -> Interaction) -> InfoGetter -> Student -> Student -> List Int -> List Interaction -> ( List Int, List Interaction )
+buildRecursiveInteraction bondsCompatible targBondFilter intBuilder infoGetter sourceId targetId handledSources existing =
     Maybe.withDefault ( handledSources, existing ) <|
         Maybe.map2
             (\source target ->
@@ -472,6 +605,9 @@ buildRecursiveInteraction targBondFilter intBuilder infoGetter sourceId targetId
                 if List.member sourceId handledSources then
                     ( handledSources, existing )
 
+                else if not (bondsCompatible source target) then
+                    ( sourceId :: handledSources, existing )
+
                 else if List.any (equal initialInteraction) existing then
                     ( sourceId :: handledSources, existing )
 
@@ -485,7 +621,7 @@ buildRecursiveInteraction targBondFilter intBuilder infoGetter sourceId targetId
                                     target2 =
                                         Bonds.getBondId val
                                 in
-                                buildRecursiveInteraction targBondFilter intBuilder infoGetter targetId target2 handled acc
+                                buildRecursiveInteraction bondsCompatible targBondFilter intBuilder infoGetter targetId target2 handled acc
                                     |> Tuple.mapSecond (List.map (addMember sourceId))
                             )
                             ( sourceId :: handledSources, initialInteraction :: existing )
@@ -496,13 +632,14 @@ buildRecursiveInteraction targBondFilter intBuilder infoGetter sourceId targetId
 
 buildDate : InfoGetter -> Student -> Student -> List Interaction -> List Interaction
 buildDate infogetter sourceId targetId existing =
-    buildRecursiveInteraction (Bonds.isOfSameType (Bonds.InLove 0)) Date infogetter sourceId targetId [] existing
+    buildRecursiveInteraction (\x y -> areRelatives x y |> not) (Bonds.isOfSameType (Bonds.InLove 0)) Date infogetter sourceId targetId [] existing
         |> Tuple.second
 
 
 buildHangout : InfoGetter -> Student -> Student -> List Int -> List Interaction -> ( List Int, List Interaction )
 buildHangout =
     buildRecursiveInteraction
+        (\x y -> True)
         (\x ->
             case x of
                 Bonds.Friend _ ->
@@ -540,6 +677,9 @@ fromBond infoGetter sId bond =
             [ Fight (Set.fromList [ x, sId ])
             , Training (Set.fromList [ x, sId ])
             ]
+
+        Bonds.Lustful x ->
+            bd x
 
         _ ->
             []

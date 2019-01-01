@@ -1,4 +1,12 @@
-module Name exposing (Name, newName, newRelativeName, toFamilyString, toGivenString, toString)
+module Name exposing
+    ( Name
+    , newName
+    , newRelativeName
+    , testDefault
+    , toFamilyString
+    , toGivenString
+    , toString
+    )
 
 import Array
 import Basics exposing (round)
@@ -386,6 +394,15 @@ type Name
         , separators : List Connector
         , family : Int
         , given : Int
+        }
+
+
+testDefault =
+    Name
+        { names = [ "a", "b" ]
+        , separators = []
+        , family = 1
+        , given = 0
         }
 
 

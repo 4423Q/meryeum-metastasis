@@ -136,28 +136,39 @@ deplural pron word =
 
 commasAnd : List String -> String
 commasAnd list =
-    let
-        rev =
-            List.reverse list
-    in
-    let
-        last =
-            List.head rev
+    case list of
+        [] ->
+            ""
 
-        rest =
-            List.tail rev |> Maybe.withDefault []
-    in
-    Maybe.map
-        (\l ->
-            case rest of
-                [] ->
-                    l
+        y :: [] ->
+            y
 
-                xs ->
-                    String.join ", and " [ String.join ", " (List.reverse xs), l ]
-        )
-        last
-        |> Maybe.withDefault ""
+        x :: y :: [] ->
+            x ++ " and " ++ y
+
+        _ ->
+            let
+                rev =
+                    List.reverse list
+            in
+            let
+                last =
+                    List.head rev
+
+                rest =
+                    List.tail rev |> Maybe.withDefault []
+            in
+            Maybe.map
+                (\l ->
+                    case rest of
+                        [] ->
+                            l
+
+                        xs ->
+                            String.join ", and " [ String.join ", " (List.reverse xs), l ]
+                )
+                last
+                |> Maybe.withDefault ""
 
 
 ana : String -> String

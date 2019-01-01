@@ -1,6 +1,7 @@
 module Student exposing
     ( Student
     , addBond
+    , fromRecord
     , getBonds
     , getClasses
     , getFamilyName
@@ -9,6 +10,7 @@ module Student exposing
     , getInteractionInfo
     , getInvisibleStats
     , getName
+    , getNickname
     , getNumber
     , getPronouns
     , getQuirks
@@ -17,6 +19,7 @@ module Student exposing
     , newRelative
     , newStudent
     , setName
+    , setNickname
     , setNumber
     , setPronouns
     , updateBonds
@@ -96,6 +99,16 @@ getFamilyName (Student std) =
 setName : Student -> Name.Name -> Student
 setName (Student std) name =
     Student { std | name = name }
+
+
+getNickname : Student -> Maybe String
+getNickname (Student std) =
+    std.nickname
+
+
+setNickname : Student -> Maybe String -> Student
+setNickname (Student std) nick =
+    Student { std | nickname = nick }
 
 
 getFriendlyName : Student -> String
@@ -183,10 +196,13 @@ getBonds student =
 
 getInteractionInfo : Student -> Interactions.StudentInfo
 getInteractionInfo ((Student s) as student) =
-    { bonds = getBonds student
+    { id = getNumber student
+    , bonds = getBonds student
     , quirks = getQuirks student
     , name = s.name
     , pronouns = s.pronouns
+    , visible = s.visible
+    , invisible = s.invisible
     }
 
 
@@ -218,6 +234,10 @@ getClasses (Student s) =
     s.classes
 
 
+fromRecord sinfo =
+    Student sinfo
+
+
 newStudentMaker : Generator Name.Name -> Generator Student
 newStudentMaker nameGen =
     Random.map5
@@ -233,7 +253,7 @@ newStudentMaker nameGen =
                 , classes = []
                 , quirks = []
                 , value = 0
-                , nickname = Just "Janine"
+                , nickname = Nothing
                 }
         )
         Stats.newVisibleStats

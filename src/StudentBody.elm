@@ -3,22 +3,24 @@ module StudentBody exposing
     , addRelative
     , addStudent
     , addStudents
+    , applyResults
     , asList
     , empty
     , findAllInteractions
     , findInteractions
+    , fromList
     , genStudent
     , genWeeksInteractions
     , getBondTarget
     , getNum
     , getStudentById
     , processWeeksInteractions
+    , updateStudentById
     )
 
 import Array
 import Bonds
 import Classes
-import Debug
 import Interactions
 import List.Extra
 import Random exposing (Generator)
@@ -42,6 +44,11 @@ asList sBody =
     case sBody of
         StudentBody x _ ->
             x
+
+
+fromList : List Student.Student -> StudentBody
+fromList list =
+    StudentBody list (List.length list)
 
 
 getNum : StudentBody -> Int
@@ -132,14 +139,7 @@ applyResults originalBody results =
                         bonds
                             |> List.foldr
                                 (\bond acc2 ->
-                                    case
-                                        addBondToStudentById bond source acc2
-                                    of
-                                        Just x ->
-                                            x
-
-                                        Nothing ->
-                                            acc2
+                                    Maybe.withDefault acc2 (addBondToStudentById bond source acc2)
                                 )
                                 newBody
 

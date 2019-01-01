@@ -63,7 +63,7 @@ isTargetCompatible targetBonds bond sourceId =
                 (\b ->
                     case b of
                         Relative _ source ->
-                            True
+                            source == sourceId
 
                         _ ->
                             False
