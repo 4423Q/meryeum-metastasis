@@ -1,4 +1,13 @@
-module Stats exposing (InvisibleStats, Stat, VisibleStats, newInvisibleStats, newStat, newVisibleStats)
+module Stats exposing
+    ( InvisibleStats
+    , Stat
+    , VisibleStats
+    , newInvisibleStats
+    , newStat
+    , newVisibleStats
+    , relativeInvisStatsUpdate
+    , relativeStatsUpdate
+    )
 
 import Random exposing (Generator)
 import Random.Float
@@ -32,6 +41,34 @@ type alias VisibleStats =
     }
 
 
+type alias InvisibleStats =
+    { horny : Stat
+    , angry : Stat
+    , ambition : Stat
+    , diversion : Stat
+    }
+
+
+relativeStatsUpdate : VisibleStats -> VisibleStats -> VisibleStats
+relativeStatsUpdate orig delta =
+    { orig
+        | sharp = clamp 0 10 (orig.sharp + delta.sharp)
+        , danger = clamp 0 10 (orig.danger + delta.danger)
+        , hot = clamp 0 10 (orig.hot + delta.hot)
+        , extra = clamp 0 10 (orig.extra + delta.extra)
+    }
+
+
+relativeInvisStatsUpdate : InvisibleStats -> InvisibleStats -> InvisibleStats
+relativeInvisStatsUpdate orig delta =
+    { orig
+        | horny = clamp 0 10 (orig.horny + delta.horny)
+        , angry = clamp 0 10 (orig.angry + delta.angry)
+        , ambition = clamp 0 10 (orig.ambition + delta.ambition)
+        , diversion = clamp 0 10 (orig.diversion + delta.diversion)
+    }
+
+
 newVisibleStats =
     Random.map4
         (\a b c d -> { sharp = a, danger = b, hot = c, extra = d })
@@ -39,14 +76,6 @@ newVisibleStats =
         newStat
         newStat
         newStat
-
-
-type alias InvisibleStats =
-    { horny : Stat
-    , angry : Stat
-    , ambition : Stat
-    , diversion : Stat
-    }
 
 
 newInvisibleStats =

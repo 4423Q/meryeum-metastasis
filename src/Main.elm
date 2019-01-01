@@ -8,6 +8,8 @@ import Html exposing (Html, a, button, div, text)
 import Html.Attributes exposing (href, style)
 import Html.Events exposing (onClick)
 import Interactions
+import List.Extra
+import Pronouns
 import Quirks
 import Random
 import String.Extra
@@ -32,8 +34,12 @@ init _ =
       }
     , Random.generate
         NewStudents
-        (StudentBody.addStudents 6 StudentBody.empty)
+        (StudentBody.addStudents 1 StudentBody.empty)
     )
+
+
+
+-- MSG
 
 
 type Msg
@@ -64,6 +70,10 @@ getNewRelative body id =
             Random.generate MaybeNewStudents x
 
 
+
+-- UPDATE
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg ({ events, body } as model) =
     case msg of
@@ -80,7 +90,7 @@ update msg ({ events, body } as model) =
             ( { model | body = x }, Cmd.none )
 
         NewEvents ( x, y ) ->
-            case Debug.log "EVENTS" x of
+            case Debug.log "EVENTS" ( x, y ) of
                 _ ->
                     ( { events = List.append x events
                       , body = y
@@ -110,7 +120,7 @@ update msg ({ events, body } as model) =
             ( model
             , Random.generate NewEvents
                 (StudentBody.genWeeksInteractions body
-                    |> Random.andThen (StudentBody.resolveInteractions body)
+                    |> Random.andThen (StudentBody.processWeeksInteractions body)
                 )
             )
 
@@ -138,7 +148,7 @@ viewStats { danger, hot, sharp, extra } =
 
 
 quirkToString : Student.Student -> Quirks.Quirk -> String
-quirkToString student (Quirks.Quirk name) =
+quirkToString student name =
     let
         sProns =
             Student.getPronouns student
@@ -210,6 +220,18 @@ quirkToString student (Quirks.Quirk name) =
 
         Quirks.Illuminati ->
             "Inducted into the secret society that runs everything."
+
+        Quirks.CatEars ->
+            String.join " "
+                [ String.Extra.toSentenceCase (Util.combHasHave sProns.subj)
+                , "got kitty ears."
+                ]
+
+        Quirks.WolfEars ->
+            String.join " "
+                [ String.Extra.toSentenceCase (Util.combHasHave sProns.subj)
+                , "got wolf ears. Awoo~~~"
+                ]
 
 
 bondToString : Student.Student -> Student.Student -> Bonds.Bond -> String
@@ -308,7 +330,7 @@ renderStudent body x =
                     "a person who is also " ++ Util.ana wep ++ " " ++ wep
     in
     div []
-        [ div [] [ text ("Name: " ++ Student.getName x ++ " [#" ++ String.fromInt (Student.getNumber x) ++ "]" ++ " (" ++ .subj prons ++ "/" ++ .obj prons ++ ")") ]
+        [ div [] [ text ("Name: " ++ Student.getName x ++ " [#" ++ String.fromInt (Student.getNumber x) ++ "]" ++ " (" ++ Util.slashmode prons ++ ")") ]
         , viewStats stats
         , div [] [ text ("Classes: " ++ (Student.getClasses x |> List.map Classes.toString |> String.join ", ")) ]
         , div []
@@ -326,36 +348,108 @@ renderStudent body x =
 
 renderEvent : StudentBody.StudentBody -> Interactions.Event -> Html Msg
 renderEvent body event =
+    let
+        qualitify =
+            List.Extra.gatherEqualsBy Tuple.second
+                >> List.map
+                    (\( ( v, qual ) as a, vs ) ->
+                        (a :: vs)
+                            |> List.map (Tuple.first >> Student.getGivenName)
+                            |> Util.commasAnd
+                            |> (\x ->
+                                    String.join " "
+                                        [ x
+                                        , "had"
+                                        , Util.ana (Interactions.qualityToString qual)
+                                        , Interactions.qualityToString qual
+                                        , "time"
+                                        ]
+                               )
+                    )
+
+        getStudent =
+            StudentBody.getStudentById body
+
+        getParticipants =
+            List.map (Tuple.mapFirst (StudentBody.getStudentById body))
+                >> List.map
+                    (\( x, y ) ->
+                        case x of
+                            Just z ->
+                                Just ( z, y )
+
+                            Nothing ->
+                                Nothing
+                    )
+                >> List.foldr
+                    (\val acc ->
+                        val
+                            |> Maybe.map (\v2 -> v2 :: acc)
+                            |> Maybe.withDefault acc
+                    )
+                    []
+    in
     div []
         [ case event of
             Interactions.HangoutEvent xs rs ->
                 let
                     participants =
-                        xs
-                            |> List.map (Tuple.mapFirst (StudentBody.getStudentById body))
-                            |> List.map
-                                (\( x, y ) ->
-                                    case x of
-                                        Just z ->
-                                            Just ( z, y )
-
-                                        Nothing ->
-                                            Nothing
-                                )
-                            |> List.foldr
-                                (\val acc ->
-                                    val
-                                        |> Maybe.map (\v2 -> v2 :: acc)
-                                        |> Maybe.withDefault acc
-                                )
-                                []
+                        getParticipants xs
                 in
-                (participants |> List.map (\x -> x |> Tuple.first |> Student.getName) |> String.join ", ")
-                    ++ " hung out together"
+                participants
+                    |> List.map (\x -> x |> Tuple.first |> Student.getName)
+                    |> String.join ", "
+                    |> (\x -> x ++ " hung out together")
+                    |> (\starter ->
+                            participants
+                                |> qualitify
+                                |> (\x -> String.join ", " (starter :: x))
+                       )
                     |> text
 
             Interactions.DateEvent xs rs ->
-                text "IMPLEMENT THE DATE EVENT RENDERING"
+                let
+                    participants =
+                        getParticipants xs
+                in
+                participants
+                    |> List.map (\x -> x |> Tuple.first |> Student.getName)
+                    |> String.join ", "
+                    |> (\x -> x ++ " went on a date")
+                    |> (\starter ->
+                            participants
+                                |> qualitify
+                                |> (\x -> starter ++ ": " ++ String.join ", " x)
+                       )
+                    |> (\x -> x ++ ".")
+                    |> text
+
+            Interactions.TransitionEvent s t _ ->
+                s
+                    |> getStudent
+                    |> Maybe.map
+                        (\x ->
+                            let
+                                prons =
+                                    Student.getPronouns x
+                            in
+                            Student.getName x
+                                ++ (case t of
+                                        Interactions.NameT y ->
+                                            " changed " ++ prons.pos ++ " name."
+
+                                        Interactions.PronT y ->
+                                            " started using " ++ Pronouns.slashmode y ++ " pronouns."
+
+                                        Interactions.BothT y z ->
+                                            " changed " ++ prons.pos ++ " name and started using " ++ Pronouns.slashmode z ++ " pronouns."
+                                   )
+                        )
+                    |> Maybe.withDefault
+                        ("Something went wrong attempting to get student: "
+                            ++ String.fromInt s
+                        )
+                    |> text
         ]
 
 

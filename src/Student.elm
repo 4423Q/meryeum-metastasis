@@ -4,7 +4,9 @@ module Student exposing
     , getBonds
     , getClasses
     , getFamilyName
+    , getFriendlyName
     , getGivenName
+    , getInteractionInfo
     , getInvisibleStats
     , getName
     , getNumber
@@ -14,8 +16,12 @@ module Student exposing
     , getWeapon
     , newRelative
     , newStudent
+    , setName
     , setNumber
+    , setPronouns
     , updateBonds
+    , updateInvisibleStats
+    , updateStats
     )
 
 import Array
@@ -23,6 +29,7 @@ import Basics exposing (round)
 import Bonds
 import Classes
 import Dict exposing (Dict)
+import Interactions
 import Name
 import Pronouns exposing (Pronoun)
 import Quirks
@@ -44,6 +51,7 @@ type Student
         , value : Int
         , quirks : List Quirks.Quirk
         , classes : List Classes.Class
+        , nickname : Maybe String
         }
 
 
@@ -72,12 +80,32 @@ genAndTakeClasses n student =
 
 getName : Student -> String
 getName (Student std) =
-    Name.toString std.name
+    case std.nickname of
+        Just nick ->
+            Name.toString std.name ++ " (" ++ nick ++ ")"
+
+        Nothing ->
+            Name.toString std.name
 
 
 getFamilyName : Student -> String
 getFamilyName (Student std) =
     Name.toFamilyString std.name
+
+
+setName : Student -> Name.Name -> Student
+setName (Student std) name =
+    Student { std | name = name }
+
+
+getFriendlyName : Student -> String
+getFriendlyName ((Student std) as s) =
+    case std.nickname of
+        Just nick ->
+            nick
+
+        Nothing ->
+            getGivenName s
 
 
 getGivenName : Student -> String
@@ -88,6 +116,16 @@ getGivenName (Student std) =
 getStats : Student -> VisibleStats
 getStats (Student std) =
     std.visible
+
+
+updateStats : Student -> VisibleStats -> Student
+updateStats (Student s) d =
+    Student { s | visible = Stats.relativeStatsUpdate s.visible d }
+
+
+updateInvisibleStats : Student -> InvisibleStats -> Student
+updateInvisibleStats (Student s) d =
+    Student { s | invisible = Stats.relativeInvisStatsUpdate s.invisible d }
 
 
 getInvisibleStats : Student -> InvisibleStats
@@ -109,9 +147,12 @@ setNumber num student =
 
 getPronouns : Student -> { subj : String, obj : String, pos : String, pos2 : String }
 getPronouns (Student { pronouns }) =
-    case pronouns of
-        Pronouns.Pronoun a b c d ->
-            { subj = a, obj = b, pos = c, pos2 = d }
+    Pronouns.asRecord pronouns
+
+
+setPronouns : Student -> Pronouns.Pronoun -> Student
+setPronouns (Student p) prons =
+    Student { p | pronouns = prons }
 
 
 getWeapon : Student -> WeaponType
@@ -138,6 +179,15 @@ getBonds student =
     case student of
         Student { bonds } ->
             Bonds.asList bonds
+
+
+getInteractionInfo : Student -> Interactions.StudentInfo
+getInteractionInfo ((Student s) as student) =
+    { bonds = getBonds student
+    , quirks = getQuirks student
+    , name = s.name
+    , pronouns = s.pronouns
+    }
 
 
 addQuirk : Student -> Quirks.Quirk -> Student
@@ -183,6 +233,7 @@ newStudentMaker nameGen =
                 , classes = []
                 , quirks = []
                 , value = 0
+                , nickname = Just "Janine"
                 }
         )
         Stats.newVisibleStats

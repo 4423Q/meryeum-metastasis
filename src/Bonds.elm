@@ -13,6 +13,7 @@ module Bonds exposing
     , isCommutative
     , isOfSameType
     , isTargetCompatible
+    , randomNonRelative
     )
 
 
@@ -31,11 +32,27 @@ type Bond
     | Relative RelativeType Int
 
 
+type alias Weighted a =
+    ( Float, a )
+
+
 checkBondIsValidToAdd : List Bond -> List Bond -> Bond -> Int -> Bool
 checkBondIsValidToAdd sourceBonds targetBonds bond sourceId =
     not (List.member bond sourceBonds)
         && isTargetCompatible targetBonds bond sourceId
         && not (getBondId bond == sourceId)
+
+
+randomNonRelative : Int -> ( Weighted Bond, List (Weighted Bond) )
+randomNonRelative a =
+    ( ( 50, Friend a )
+    , [ ( 30, Enemy a )
+      , ( 20, Rival a )
+      , ( 15, Admires a )
+      , ( 5, Lustful a )
+      , ( 5, InLove a )
+      ]
+    )
 
 
 isTargetCompatible : List Bond -> Bond -> Int -> Bool

@@ -12,7 +12,7 @@ module StudentBody exposing
     , getBondTarget
     , getNum
     , getStudentById
-    , resolveInteractions
+    , processWeeksInteractions
     )
 
 import Array
@@ -77,203 +77,14 @@ updateStudentById updateFunc body id =
                     Nothing
 
 
-buildHangout : Student.Student -> Student.Student -> StudentBody -> List Int -> List Interactions.Interaction -> ( List Int, List Interactions.Interaction )
-buildHangout source target body handledSources existing =
-    let
-        targBonds =
-            Student.getBonds target
-
-        sourceId =
-            Student.getNumber source
-
-        targetId =
-            Student.getNumber target
-
-        initialInteraction =
-            Interactions.Hangout
-                (Set.insert
-                    (Student.getNumber source)
-                    (Set.singleton (Student.getNumber target))
-                )
-    in
-    if List.member sourceId handledSources then
-        ( handledSources, existing )
-
-    else if List.any (Interactions.equal initialInteraction) existing || List.length existing > 4 then
-        ( sourceId :: handledSources, existing )
-
-    else
-        let
-            combined =
-                initialInteraction :: existing
-
-            newHandledSources =
-                sourceId :: handledSources
-        in
-        case
-            targBonds
-                |> List.filter
-                    (\x ->
-                        (case x of
-                            Bonds.Friend _ ->
-                                True
-
-                            Bonds.Relative _ _ ->
-                                True
-
-                            _ ->
-                                False
-                        )
-                            && Bonds.getBondId x
-                            /= sourceId
-                    )
-        of
-            [] ->
-                ( newHandledSources, combined )
-
-            xs ->
-                xs
-                    |> List.foldr
-                        (\val ( handled, acc ) ->
-                            let
-                                target2 =
-                                    getStudentById body (Bonds.getBondId val)
-                            in
-                            case target2 of
-                                Just t2 ->
-                                    buildHangout target t2 body newHandledSources acc
-                                        |> Tuple.mapSecond (List.map (Interactions.addMember sourceId))
-
-                                Nothing ->
-                                    ( handled, acc )
-                        )
-                        ( newHandledSources, combined )
-
-
-buildDate : Student.Student -> Student.Student -> StudentBody -> List Interactions.Interaction -> List Interactions.Interaction
-buildDate source target body existing =
-    let
-        targBonds =
-            Student.getBonds target
-
-        sourceId =
-            Student.getNumber source
-
-        targetId =
-            Student.getNumber target
-
-        initialInteraction =
-            Interactions.Date
-                (Set.insert
-                    (Student.getNumber source)
-                    (Set.singleton (Student.getNumber target))
-                )
-    in
-    if List.member initialInteraction existing then
-        []
-
-    else
-        let
-            combined =
-                initialInteraction :: existing
-        in
-        case targBonds |> List.filter (\x -> Bonds.getBondId x /= sourceId) of
-            [] ->
-                combined
-
-            xs ->
-                xs
-                    |> List.filter (Bonds.isOfSameType (Bonds.InLove 0))
-                    |> List.foldr
-                        (\val acc ->
-                            let
-                                target2 =
-                                    getStudentById body (Bonds.getBondId val)
-                            in
-                            case target2 of
-                                Just t2 ->
-                                    buildDate target t2 body acc
-                                        |> List.map (Interactions.addMember sourceId)
-
-                                Nothing ->
-                                    acc
-                        )
-                        combined
-
-
-interactionsFromBond :
-    Bonds.Bond
-    -> Student.Student
-    -> StudentBody
-    -> List Interactions.Interaction
-interactionsFromBond bond sS body =
-    case bond of
-        Bonds.InLove x ->
-            let
-                target =
-                    getStudentById body x
-            in
-            case target of
-                Nothing ->
-                    []
-
-                Just tS ->
-                    buildDate sS tS body []
-
-        Bonds.Friend x ->
-            let
-                target =
-                    getStudentById body x
-            in
-            case target of
-                Nothing ->
-                    []
-
-                Just tS ->
-                    case
-                        buildHangout sS tS body [] []
-                    of
-                        ( _, v ) ->
-                            v
-
-        Bonds.Admires x ->
-            let
-                target =
-                    getStudentById body x
-            in
-            case target of
-                Nothing ->
-                    []
-
-                Just tS ->
-                    case
-                        buildHangout sS tS body [] []
-                    of
-                        ( _, v ) ->
-                            List.append (buildDate sS tS body []) v
-
-        Bonds.Rival x ->
-            let
-                target =
-                    getStudentById body x
-            in
-            case target of
-                Nothing ->
-                    []
-
-                Just tS ->
-                    [ Interactions.Fight (Set.fromList [ x, Student.getNumber sS ])
-                    , Interactions.Training (Set.fromList [ x, Student.getNumber sS ])
-                    ]
-
-        _ ->
-            []
-
-
 findInteractions : Student.Student -> StudentBody -> List Interactions.Interaction
 findInteractions student body =
+    let
+        interactionsFromBond source b2 =
+            Interactions.fromBond (interactionInfoGetter b2) (Student.getNumber source)
+    in
     Student.getBonds student
-        |> List.map (\x -> interactionsFromBond x student body)
+        |> List.map (interactionsFromBond student body)
         |> List.concat
 
 
@@ -305,18 +116,24 @@ findAllInteractions body =
 
 
 applyResults : StudentBody -> List Interactions.Result -> StudentBody
-applyResults body results =
+applyResults originalBody results =
     results
         |> List.concatMap Interactions.resultImpliesResults
+        |> Debug.log "RESULTS TO APPLY"
         |> List.foldr
-            (\result acc ->
+            (\result newBody ->
+                let
+                    simpleUpdate func sId =
+                        updateStudentById func newBody sId
+                            |> Maybe.withDefault newBody
+                in
                 case result of
                     Interactions.BondsFormed source bonds ->
                         bonds
                             |> List.foldr
                                 (\bond acc2 ->
                                     case
-                                        addBondToStudentById bond source acc
+                                        addBondToStudentById bond source acc2
                                     of
                                         Just x ->
                                             x
@@ -324,69 +141,68 @@ applyResults body results =
                                         Nothing ->
                                             acc2
                                 )
-                                acc
+                                newBody
 
                     Interactions.BondsBroken source bonds ->
                         bonds
                             |> List.foldr
                                 (\bond acc2 ->
-                                    Maybe.withDefault acc2 (breakBondToStudentById bond source acc)
+                                    Maybe.withDefault acc2 (breakBondToStudentById bond source acc2)
                                 )
-                                acc
+                                newBody
 
-                    _ ->
-                        acc
+                    Interactions.NameChange sId name ->
+                        simpleUpdate (\s -> Student.setName s name) sId
+
+                    Interactions.PronounChange sId prons ->
+                        simpleUpdate (\s -> Student.setPronouns s prons) sId
+
+                    Interactions.StatsChange sId delta ->
+                        simpleUpdate (\s -> Student.updateStats s delta) sId
+
+                    Interactions.InvisStatsChange sId delta ->
+                        simpleUpdate (\s -> Student.updateInvisibleStats s delta) sId
             )
-            body
+            originalBody
 
 
-resolveInteractions : StudentBody -> List Interactions.Interaction -> Generator ( List Interactions.Event, StudentBody )
-resolveInteractions body ints =
-    -- Eventually do a thing to decide how interactions go based on stats, but for now fuck it
+interactionInfoGetter : StudentBody -> (Int -> Maybe Interactions.StudentInfo)
+interactionInfoGetter body =
+    \id ->
+        getStudentById body id
+            |> Maybe.map Student.getInteractionInfo
+
+
+genWeeksEvents : StudentBody -> List Interactions.Interaction -> Generator (List Interactions.Event)
+genWeeksEvents body ints =
     let
-        processInteraction =
-            \val acc ->
-                acc
-                    |> Random.andThen
-                        (\( events, newbody ) ->
-                            case val of
-                                Interactions.Date xs ->
-                                    Random.list (Set.size xs) (Interactions.distrnToQuality 2 1)
-                                        |> Random.andThen
-                                            (\qualities ->
-                                                let
-                                                    quals =
-                                                        List.Extra.zip (Set.toList xs) qualities
-                                                in
-                                                Interactions.interactionAndQualitiesToResults val quals
-                                                    |> Random.map
-                                                        (\results ->
-                                                            ( Interactions.DateEvent quals results :: events, newbody )
-                                                        )
-                                            )
-
-                                Interactions.Hangout xs ->
-                                    Random.list (Set.size xs) (Interactions.distrnToQuality 2 1)
-                                        |> Random.andThen
-                                            (\qualities ->
-                                                let
-                                                    quals =
-                                                        List.Extra.zip (Set.toList xs) qualities
-                                                in
-                                                Interactions.interactionAndQualitiesToResults val quals
-                                                    |> Random.map
-                                                        (\results ->
-                                                            ( Interactions.HangoutEvent quals results :: events, newbody )
-                                                        )
-                                            )
-
-                                _ ->
-                                    Random.constant ( events, newbody )
-                        )
+        infoGetter =
+            interactionInfoGetter body
     in
-    Random.List.shuffle ints
-        |> Random.andThen (List.foldr processInteraction (Random.constant ( [], body )))
-        |> Random.map (\( events, body2 ) -> ( events, applyResults body2 (List.concatMap Interactions.resultsFromEvent events) ))
+    Interactions.interactionsToEvents infoGetter ints
+        |> Random.andThen
+            (\events ->
+                asList body
+                    |> List.map Student.getNumber
+                    |> List.map (Interactions.genRandomEvent infoGetter)
+                    |> Util.flattenGen
+                    |> Random.map Util.removeNothings
+                    |> Random.map (List.append events)
+            )
+
+
+resolveWeeksEvents : StudentBody -> List Interactions.Event -> StudentBody
+resolveWeeksEvents body events =
+    applyResults body (List.concatMap Interactions.resultsFromEvent events)
+
+
+processWeeksInteractions : StudentBody -> List Interactions.Interaction -> Generator ( List Interactions.Event, StudentBody )
+processWeeksInteractions body =
+    genWeeksEvents body
+        >> Random.map
+            (\events ->
+                ( events, resolveWeeksEvents body events )
+            )
 
 
 genWeeksInteractions : StudentBody -> Generator (List Interactions.Interaction)
@@ -405,14 +221,7 @@ genWeeksInteractions body =
                         False
 
         infoGetter =
-            \id ->
-                getStudentById body id
-                    |> Maybe.map
-                        (\std ->
-                            { bonds = Student.getBonds std
-                            , quirks = Student.getQuirks std
-                            }
-                        )
+            interactionInfoGetter body
     in
     let
         classInteractions =
@@ -488,17 +297,10 @@ genRandomNonRelativeBond body =
                 case x of
                     Just b ->
                         let
-                            a =
-                                Student.getNumber b
+                            ( bH, bR ) =
+                                Bonds.randomNonRelative (Student.getNumber b)
                         in
-                        Random.weighted
-                            ( 50, Bonds.Friend a )
-                            [ ( 30, Bonds.Enemy a )
-                            , ( 20, Bonds.Rival a )
-                            , ( 15, Bonds.Admires a )
-                            , ( 5, Bonds.Lustful a )
-                            , ( 5, Bonds.InLove a )
-                            ]
+                        Random.weighted bH bR
 
                     Nothing ->
                         genRandomNonRelativeBond body
@@ -542,9 +344,9 @@ breakBondToStudentById bond id body =
             (\sourceStudent targetStudent ->
                 let
                     sourceBonds =
-                        Debug.log "SOURCEBONDS" (Student.getBonds sourceStudent)
+                        Student.getBonds sourceStudent
                 in
-                case List.member (Debug.log "BONDTOBREAK" bond) sourceBonds of
+                case List.member bond sourceBonds of
                     False ->
                         Nothing
 
@@ -567,10 +369,10 @@ breakBondToStudentById bond id body =
 
                         else
                             -- TODO implement the assoc case
-                            Debug.log "UPDATEDBODY" updatedBody
+                            updatedBody
                                 |> Maybe.map
                                     (\usb2 ->
-                                        case breakBondToStudentById (Debug.log "Trying to break a bond" (Bonds.changeBondId id bond)) target usb2 of
+                                        case breakBondToStudentById (Bonds.changeBondId id bond) target usb2 of
                                             Just y ->
                                                 y
 
@@ -697,7 +499,7 @@ genRelative target body =
                     ( addedStudent, newBody ) =
                         addStudent student body
                 in
-                Debug.log "addingBondToStudentForRelative" (addBondToStudentById (Debug.log "BOND" bond) (Student.getNumber addedStudent) newBody)
+                addBondToStudentById bond (Student.getNumber addedStudent) newBody
                     |> Maybe.map
                         (\body2 -> ( addedStudent, body2 ))
             )

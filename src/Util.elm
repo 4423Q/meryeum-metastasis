@@ -1,8 +1,55 @@
-module Util exposing (ana, deplural, genUniformFromArray, genUniformFromArray2, hasHave, isare, popNRandom, popRand)
+module Util exposing
+    ( ana
+    , combHasHave
+    , commasAnd
+    , deplural
+    , flattenGen
+    , genUniformFromArray
+    , genUniformFromArray2
+    , hasHave
+    , isare
+    , popNRandom
+    , popRand
+    , removeNothings
+    , slashmode
+    , swapGenMaybe
+    )
 
 import Array
 import Random exposing (Generator)
 import String
+
+
+removeNothings : List (Maybe a) -> List a
+removeNothings =
+    List.concatMap (Maybe.map List.singleton >> Maybe.withDefault [])
+
+
+slashmode : { subj : String, obj : String, pos : String, pos2 : String } -> String
+slashmode pron =
+    .subj pron ++ "/" ++ .obj pron
+
+
+swapGenMaybe : Maybe (Generator a) -> Generator (Maybe a)
+swapGenMaybe mg =
+    case mg of
+        Just a ->
+            a |> Random.map Just
+
+        Nothing ->
+            Random.constant Nothing
+
+
+flattenGen : List (Generator a) -> Generator (List a)
+flattenGen gens =
+    gens
+        |> List.foldr
+            (\val acc ->
+                Random.map2 (\val2 acc2 -> val2 :: acc2)
+                    val
+                    acc
+            )
+            (Random.constant [])
 
 
 popRand : ( Float, a ) -> List ( Float, a ) -> Generator ( a, List ( Float, a ) )
@@ -55,6 +102,16 @@ hasHave pron =
             "has"
 
 
+combHasHave : String -> String
+combHasHave pron =
+    case String.toLower pron of
+        "they" ->
+            "they've"
+
+        x ->
+            x ++ "'s"
+
+
 deplural : String -> String -> String
 deplural pron word =
     case String.toLower pron of
@@ -75,6 +132,32 @@ deplural pron word =
 
                 False ->
                     String.append word "s"
+
+
+commasAnd : List String -> String
+commasAnd list =
+    let
+        rev =
+            List.reverse list
+    in
+    let
+        last =
+            List.head rev
+
+        rest =
+            List.tail rev |> Maybe.withDefault []
+    in
+    Maybe.map
+        (\l ->
+            case rest of
+                [] ->
+                    l
+
+                xs ->
+                    String.join ", and " [ String.join ", " (List.reverse xs), l ]
+        )
+        last
+        |> Maybe.withDefault ""
 
 
 ana : String -> String

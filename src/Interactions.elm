@@ -1,14 +1,39 @@
-module Interactions exposing (Event(..), Interaction(..), Quality(..), Result(..), addMember, distrnToQuality, equal, getChance, interactionAndQualitiesToResults, resultImpliesResults, resultsFromEvent)
+module Interactions exposing
+    ( Event(..)
+    , Interaction(..)
+    , Quality(..)
+    , Result(..)
+    , StudentInfo
+    , Transition(..)
+    , addMember
+    , buildDate
+    , buildHangout
+    , distrnToQuality
+    , equal
+    , fromBond
+    , genRandomEvent
+    , getChance
+    , interactionAndQualitiesToResults
+    , interactionsToEvents
+    , qualityToString
+    , resolveInteraction
+    , resultImpliesResults
+    , resultsFromEvent
+    )
 
 import Array
 import Bonds
 import Classes
+import List.Extra
+import Name
+import Pronouns
 import Quirks
 import Random exposing (Generator)
 import Random.Float
 import Random.List
 import Set exposing (Set)
 import Stats
+import Util
 
 
 type alias Student =
@@ -40,13 +65,118 @@ type alias Experience =
 type Result
     = BondsBroken Student (List Bonds.Bond)
     | BondsFormed Student (List Bonds.Bond)
-    | StatsChange Student (List Stats.VisibleStats)
-    | InvisStatsChange Student (List Stats.InvisibleStats)
+    | StatsChange Student Stats.VisibleStats
+    | InvisStatsChange Student Stats.InvisibleStats
+    | NameChange Student Name.Name
+    | PronounChange Student Pronouns.Pronoun
+
+
+type Transition
+    = NameT Name.Name
+    | PronT Pronouns.Pronoun
+    | BothT Name.Name Pronouns.Pronoun
 
 
 type Event
     = HangoutEvent (List Experience) (List Result)
     | DateEvent (List Experience) (List Result)
+    | TransitionEvent Student Transition (List Result)
+
+
+type alias StudentInfo =
+    { bonds : List Bonds.Bond
+    , quirks : List Quirks.Quirk
+    , name : Name.Name
+    , pronouns : Pronouns.Pronoun
+    }
+
+
+type alias InfoGetter =
+    Student -> Maybe StudentInfo
+
+
+
+-- QUality functions
+
+
+qualityToString : Quality -> String
+qualityToString qual =
+    case qual of
+        Amazing ->
+            "amazing"
+
+        Good ->
+            "good"
+
+        Average ->
+            "average"
+
+        Bad ->
+            "bad"
+
+        Awful ->
+            "awful"
+
+
+
+-- Functions for Interaction type
+
+
+addMember : Student -> Interaction -> Interaction
+addMember s i =
+    case i of
+        Class xs b ->
+            Class (Set.insert s xs) b
+
+        Hangout xs ->
+            Hangout (Set.insert s xs)
+
+        Date xs ->
+            Date (Set.insert s xs)
+
+        Sex xs ->
+            Sex (Set.insert s xs)
+
+        Fight xs ->
+            Fight (Set.insert s xs)
+
+        Training xs ->
+            Training (Set.insert s xs)
+
+        Party xs ->
+            Party (Set.insert s xs)
+
+
+equal : Interaction -> Interaction -> Bool
+equal a b =
+    case ( a, b ) of
+        ( Class xs1 c1, Class xs2 c2 ) ->
+            (Classes.toString c1 == Classes.toString c2) && (xs1 == xs2)
+
+        ( Hangout xs1, Hangout xs2 ) ->
+            xs1 == xs2
+
+        ( Date xs1, Date xs2 ) ->
+            xs1 == xs2
+
+        ( Sex xs1, Sex xs2 ) ->
+            xs1 == xs2
+
+        ( Fight xs1, Fight xs2 ) ->
+            xs1 == xs2
+
+        ( Training xs1, Training xs2 ) ->
+            xs1 == xs2
+
+        ( Party xs1, Party xs2 ) ->
+            xs1 == xs2
+
+        _ ->
+            False
+
+
+
+-- Useful processing functions
 
 
 resultImpliesResults : Result -> List Result
@@ -83,6 +213,9 @@ resultsFromEvent ev =
         DateEvent _ xs ->
             xs
 
+        TransitionEvent _ _ xs ->
+            xs
+
 
 filterOutMe : Student -> List Experience -> List Experience
 filterOutMe id list =
@@ -94,6 +227,41 @@ genBondTarget exps =
     List.map Tuple.first exps
         |> Random.List.choose
         |> Random.map Tuple.first
+
+
+resolveInteraction : InfoGetter -> Interaction -> Generator (List Event)
+resolveInteraction infoGetter int =
+    case int of
+        Date xs ->
+            Random.list (Set.size xs) (distrnToQuality 2 1)
+                |> Random.andThen
+                    (\qualities ->
+                        let
+                            quals =
+                                List.Extra.zip (Set.toList xs) qualities
+                        in
+                        interactionAndQualitiesToResults int quals
+                            |> Random.map
+                                (DateEvent quals
+                                    >> List.singleton
+                                )
+                    )
+
+        Hangout xs ->
+            Random.list (Set.size xs) (distrnToQuality 2 1)
+                |> Random.andThen
+                    (\qualities ->
+                        let
+                            quals =
+                                List.Extra.zip (Set.toList xs) qualities
+                        in
+                        interactionAndQualitiesToResults int quals
+                            |> Random.map
+                                (DateEvent quals >> List.singleton)
+                    )
+
+        _ ->
+            Random.constant []
 
 
 interactionAndQualitiesToResults : Interaction -> List Experience -> Generator (List Result)
@@ -215,12 +383,6 @@ distrnToQuality mean stddev =
             )
 
 
-type alias StudentInfo =
-    { bonds : List Bonds.Bond
-    , quirks : List Quirks.Quirk
-    }
-
-
 dateModifier : Bonds.Bond -> Float
 dateModifier bond =
     case bond of
@@ -266,7 +428,7 @@ sexModifier bond =
 
 
 fightQuirkModifier : Quirks.Quirk -> Float
-fightQuirkModifier (Quirks.Quirk quirk) =
+fightQuirkModifier quirk =
     case quirk of
         Quirks.LovesToFight ->
             30
@@ -291,7 +453,171 @@ fightModifier bond =
             0
 
 
-getChance : (Student -> Maybe StudentInfo) -> Interaction -> Float
+buildRecursiveInteraction : (Bonds.Bond -> Bool) -> (Set Student -> Interaction) -> InfoGetter -> Student -> Student -> List Int -> List Interaction -> ( List Int, List Interaction )
+buildRecursiveInteraction targBondFilter intBuilder infoGetter sourceId targetId handledSources existing =
+    Maybe.withDefault ( handledSources, existing ) <|
+        Maybe.map2
+            (\source target ->
+                let
+                    targBonds =
+                        target.bonds
+
+                    initialInteraction =
+                        intBuilder
+                            (Set.insert
+                                sourceId
+                                (Set.singleton targetId)
+                            )
+                in
+                if List.member sourceId handledSources then
+                    ( handledSources, existing )
+
+                else if List.any (equal initialInteraction) existing then
+                    ( sourceId :: handledSources, existing )
+
+                else
+                    targBonds
+                        |> List.filter (\x -> Bonds.getBondId x /= sourceId)
+                        |> List.filter targBondFilter
+                        |> List.foldr
+                            (\val ( handled, acc ) ->
+                                let
+                                    target2 =
+                                        Bonds.getBondId val
+                                in
+                                buildRecursiveInteraction targBondFilter intBuilder infoGetter targetId target2 handled acc
+                                    |> Tuple.mapSecond (List.map (addMember sourceId))
+                            )
+                            ( sourceId :: handledSources, initialInteraction :: existing )
+            )
+            (infoGetter sourceId)
+            (infoGetter targetId)
+
+
+buildDate : InfoGetter -> Student -> Student -> List Interaction -> List Interaction
+buildDate infogetter sourceId targetId existing =
+    buildRecursiveInteraction (Bonds.isOfSameType (Bonds.InLove 0)) Date infogetter sourceId targetId [] existing
+        |> Tuple.second
+
+
+buildHangout : InfoGetter -> Student -> Student -> List Int -> List Interaction -> ( List Int, List Interaction )
+buildHangout =
+    buildRecursiveInteraction
+        (\x ->
+            case x of
+                Bonds.Friend _ ->
+                    True
+
+                Bonds.Relative _ _ ->
+                    True
+
+                _ ->
+                    False
+        )
+        Hangout
+
+
+fromBond : (Student -> Maybe StudentInfo) -> Student -> Bonds.Bond -> List Interaction
+fromBond infoGetter sId bond =
+    let
+        bd =
+            \x -> buildDate infoGetter sId x []
+
+        bh =
+            \x -> buildHangout infoGetter sId x [] [] |> Tuple.second
+    in
+    case bond of
+        Bonds.InLove x ->
+            bd x
+
+        Bonds.Friend x ->
+            bh x
+
+        Bonds.Admires x ->
+            List.append (bh x) (bd x)
+
+        Bonds.Rival x ->
+            [ Fight (Set.fromList [ x, sId ])
+            , Training (Set.fromList [ x, sId ])
+            ]
+
+        _ ->
+            []
+
+
+interactionsToEvents : InfoGetter -> List Interaction -> Generator (List Event)
+interactionsToEvents infoGetter ints =
+    Random.List.shuffle ints
+        |> Random.map
+            (List.map
+                (\y ->
+                    resolveInteraction infoGetter y
+                        |> Random.map (List.map Random.constant)
+                )
+            )
+        |> Random.andThen Util.flattenGen
+        |> Random.map List.concat
+        |> Random.andThen Util.flattenGen
+
+
+genRandomEvent : InfoGetter -> Student -> Generator (Maybe Event)
+genRandomEvent infoGetter student =
+    Random.andThen identity <|
+        Random.weighted
+            ( 99, Random.constant Nothing )
+            [ ( 1
+              , Random.int 0 2
+                    |> Random.andThen
+                        (\x ->
+                            infoGetter student
+                                |> Maybe.map
+                                    (\s ->
+                                        case x of
+                                            2 ->
+                                                Random.map2
+                                                    (\name pro ->
+                                                        TransitionEvent student
+                                                            (BothT name pro)
+                                                            [ NameChange student name
+                                                            , PronounChange student pro
+                                                            ]
+                                                    )
+                                                    (Name.newRelativeName s.name)
+                                                    (Pronouns.genDiffPronouns s.pronouns)
+
+                                            1 ->
+                                                Random.map
+                                                    (\name ->
+                                                        TransitionEvent student
+                                                            (NameT name)
+                                                            [ NameChange student name ]
+                                                    )
+                                                    (Name.newRelativeName s.name)
+
+                                            _ ->
+                                                Random.map
+                                                    (\pron ->
+                                                        TransitionEvent student
+                                                            (PronT pron)
+                                                            [ PronounChange student pron ]
+                                                    )
+                                                    (Pronouns.genDiffPronouns s.pronouns)
+                                    )
+                                |> (\y ->
+                                        case y of
+                                            Just z ->
+                                                Random.constant (Just z)
+
+                                            Nothing ->
+                                                Random.constant Nothing
+                                   )
+                        )
+                    |> Random.andThen Util.swapGenMaybe
+              )
+            ]
+
+
+getChance : InfoGetter -> Interaction -> Float
 getChance infoGetter int =
     let
         containsRelative =
@@ -388,56 +714,3 @@ getChance infoGetter int =
                     |> List.map sexModifier
                     |> List.foldr (+)
                         0
-
-
-addMember : Student -> Interaction -> Interaction
-addMember s i =
-    case i of
-        Class xs b ->
-            Class (Set.insert s xs) b
-
-        Hangout xs ->
-            Hangout (Set.insert s xs)
-
-        Date xs ->
-            Date (Set.insert s xs)
-
-        Sex xs ->
-            Sex (Set.insert s xs)
-
-        Fight xs ->
-            Fight (Set.insert s xs)
-
-        Training xs ->
-            Training (Set.insert s xs)
-
-        Party xs ->
-            Party (Set.insert s xs)
-
-
-equal : Interaction -> Interaction -> Bool
-equal a b =
-    case ( a, b ) of
-        ( Class xs1 c1, Class xs2 c2 ) ->
-            (Classes.toString c1 == Classes.toString c2) && (xs1 == xs2)
-
-        ( Hangout xs1, Hangout xs2 ) ->
-            xs1 == xs2
-
-        ( Date xs1, Date xs2 ) ->
-            xs1 == xs2
-
-        ( Sex xs1, Sex xs2 ) ->
-            xs1 == xs2
-
-        ( Fight xs1, Fight xs2 ) ->
-            xs1 == xs2
-
-        ( Training xs1, Training xs2 ) ->
-            xs1 == xs2
-
-        ( Party xs1, Party xs2 ) ->
-            xs1 == xs2
-
-        _ ->
-            False

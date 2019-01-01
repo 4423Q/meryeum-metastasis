@@ -124,14 +124,14 @@ getClassChance { weapon, quirks, classes } class =
     else
         case class of
             BecomingAGod ->
-                if List.member (Quirks.Quirk Quirks.DestinedForGreatness) quirks then
+                if List.member Quirks.DestinedForGreatness quirks then
                     1
 
                 else
                     0
 
             ThoughtControl ->
-                if List.member (Quirks.Quirk Quirks.Illuminati) quirks then
+                if List.member Quirks.Illuminati quirks then
                     50
 
                 else
@@ -173,14 +173,14 @@ getClassChance { weapon, quirks, classes } class =
                         0.2
 
             Combat ->
-                if List.member (Quirks.Quirk Quirks.LovesToFight) quirks then
+                if List.member Quirks.LovesToFight quirks then
                     50
 
                 else
                     1
 
             CreativeWriting ->
-                if List.member (Quirks.Quirk Quirks.Fanfic) quirks then
+                if List.member Quirks.Fanfic quirks then
                     50
 
                 else

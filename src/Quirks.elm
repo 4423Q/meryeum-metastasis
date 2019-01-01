@@ -1,11 +1,11 @@
-module Quirks exposing (Quirk(..), QuirkName(..), availableRandomQuirks, genRandomQuirk, getQuirkChance)
+module Quirks exposing (Quirk(..), availableRandomQuirks, genRandomQuirk, getQuirkChance)
 
 import Random exposing (Generator)
 import Stats
 import Weapon
 
 
-type QuirkName
+type Quirk
     = HasADog
     | LovesToFight
     | StoleAMecha
@@ -20,26 +20,26 @@ type QuirkName
     | TeamCaptain
     | Homesick
     | Illuminati
-
-
-type Quirk
-    = Quirk QuirkName
+    | CatEars
+    | WolfEars
 
 
 availableRandomQuirks =
-    [ Quirk HasADog
-    , Quirk LovesToFight
-    , Quirk StoleAMecha
-    , Quirk DestinedForGreatness
-    , Quirk LovesHotDogs
-    , Quirk KeepsABulletJournal
-    , Quirk FightsBlindfolded
-    , Quirk ExtraHot
-    , Quirk RulesNerd
-    , Quirk Fanfic
-    , Quirk LiveStreamsTraining
-    , Quirk TeamCaptain
-    , Quirk Homesick
+    [ HasADog
+    , LovesToFight
+    , StoleAMecha
+    , DestinedForGreatness
+    , LovesHotDogs
+    , KeepsABulletJournal
+    , FightsBlindfolded
+    , ExtraHot
+    , RulesNerd
+    , Fanfic
+    , LiveStreamsTraining
+    , TeamCaptain
+    , Homesick
+    , CatEars
+    , WolfEars
     ]
 
 
@@ -51,7 +51,7 @@ type alias ClassInput =
 
 
 getQuirkChance : ClassInput -> Quirk -> Float
-getQuirkChance { visibleStats, invisibleStats, weapontype } (Quirk name) =
+getQuirkChance { visibleStats, invisibleStats, weapontype } name =
     let
         vS =
             visibleStats
@@ -73,6 +73,12 @@ getQuirkChance { visibleStats, invisibleStats, weapontype } (Quirk name) =
             1
 
         Homesick ->
+            1
+
+        CatEars ->
+            1
+
+        WolfEars ->
             1
 
         KeepsABulletJournal ->
@@ -103,7 +109,7 @@ getQuirkChance { visibleStats, invisibleStats, weapontype } (Quirk name) =
         StoleAMecha ->
             case wep of
                 Weapon.Pilot "Mecha" ->
-                    toFloat iS.ambition * 20
+                    toFloat iS.ambition * 10 + toFloat vS.danger * 5
 
                 _ ->
                     0
