@@ -63,6 +63,31 @@ type alias Experience =
     ( Student, Quality )
 
 
+interactionToList : Interaction -> List Student
+interactionToList int =
+    case int of
+        Class xs _ ->
+            Set.toList xs
+
+        Hangout xs ->
+            Set.toList xs
+
+        Date xs ->
+            Set.toList xs
+
+        Sex xs ->
+            Set.toList xs
+
+        Fight xs ->
+            Set.toList xs
+
+        Training xs ->
+            Set.toList xs
+
+        Party xs ->
+            Set.toList xs
+
+
 getResultTarget : Result -> Student
 getResultTarget res =
     case res of
@@ -321,6 +346,7 @@ resultsFromClass infoGetter students =
         howmanytotake info =
             clamp 1 10 ((info.visible.extra - 2) // 2)
     in
+    -- TODO START SOME ENEMIES AND RIVALS
     Random.map List.concat <|
         Util.flattenGen
             [ hottest
@@ -358,6 +384,90 @@ resultsFromClass infoGetter students =
             ]
 
 
+interactionQualityGen : InfoGetter -> Interaction -> Generator (List ( Student, Quality ))
+interactionQualityGen infoGetter interaction =
+    let
+        loves source target =
+            case source.bonds |> List.filter ((==) (Bonds.InLove target.id)) of
+                [] ->
+                    False
+
+                _ ->
+                    True
+
+        hates source target =
+            case source.bonds |> List.filter ((==) (Bonds.Enemy target.id)) of
+                [] ->
+                    False
+
+                _ ->
+                    True
+    in
+    let
+        genQuality me others =
+            let
+                omap func =
+                    others |> List.concatMap func
+            in
+            (case interaction of
+                Hangout _ ->
+                    omap (\other -> [ ( 0, (toFloat other.visible.extra - 5) * 0.1 ) ])
+
+                Date _ ->
+                    others
+                        |> List.concatMap
+                            (\other ->
+                                [ ( -- extra
+                                    0
+                                  , (toFloat other.visible.extra - 5) * 0.2
+                                  )
+                                , ( -- unrequited simulator
+                                    case ( loves me other, loves other me ) of
+                                        ( True, True ) ->
+                                            1
+
+                                        ( False, True ) ->
+                                            0.5
+
+                                        ( True, False ) ->
+                                            -0.5
+
+                                        _ ->
+                                            0
+                                  , 0
+                                  )
+                                , (-- dates with enemies is a bad idea
+                                   case ( hates me other, hates other me ) of
+                                    ( True, True ) ->
+                                        ( -1, 0.5 )
+
+                                    ( True, False ) ->
+                                        ( -0.5, 0.5 )
+
+                                    _ ->
+                                        ( 0, 0 )
+                                  )
+                                ]
+                            )
+
+                _ ->
+                    [ ( 0, 0 ) ]
+            )
+                |> List.foldr (\val -> Tuple.mapFirst ((+) (Tuple.first val)) >> Tuple.mapSecond ((+) (Tuple.second val))) ( 2, 1 )
+                |> Debug.log "Generated Distrn"
+                |> (\( a, b ) -> distrnToQuality a b)
+                |> Random.map (\x -> ( me.id, x ))
+
+        everyelse me =
+            List.filter (.id >> (/=) me.id)
+    in
+    interactionToList interaction
+        |> List.map infoGetter
+        |> Util.removeNothings
+        |> (\pars -> List.map (\y -> genQuality y (everyelse y pars)) pars)
+        |> Util.flattenGen
+
+
 resolveInteraction : InfoGetter -> Interaction -> Generator (List Event)
 resolveInteraction infoGetter int =
     case int of
@@ -365,36 +475,58 @@ resolveInteraction infoGetter int =
             resultsFromClass infoGetter xs
                 |> Random.map (ClassEvent c >> List.singleton)
 
-        Date xs ->
-            Random.list (Set.size xs) (distrnToQuality 2 1)
+        {-
+           Date xs ->
+               Random.list (Set.size xs) (distrnToQuality 2 1)
+                   |> Random.andThen
+                       (\qualities ->
+                           let
+                               quals =
+                                   List.Extra.zip (Set.toList xs) qualities
+                           in
+                           interactionAndQualitiesToResults int quals
+                               |> Random.map
+                                   (DateEvent quals
+                                       >> List.singleton
+                                   )
+                       )
+
+              Hangout xs ->
+                  Random.list (Set.size xs) (distrnToQuality 2 1)
+                      |> Random.andThen
+                          (\qualities ->
+                              let
+                                  quals =
+                                      List.Extra.zip (Set.toList xs) qualities
+                              in
+                              interactionAndQualitiesToResults int quals
+                                  |> Random.map
+                                      (HangoutEvent quals >> List.singleton)
+                          )
+        -}
+        _ ->
+            int
+                |> interactionQualityGen infoGetter
                 |> Random.andThen
-                    (\qualities ->
-                        let
-                            quals =
-                                List.Extra.zip (Set.toList xs) qualities
-                        in
+                    (\quals ->
                         interactionAndQualitiesToResults int quals
                             |> Random.map
-                                (DateEvent quals
+                                ((case int of
+                                    Class _ c ->
+                                        ClassEvent c
+
+                                    Date _ ->
+                                        DateEvent quals
+
+                                    Hangout _ ->
+                                        HangoutEvent quals
+
+                                    _ ->
+                                        HangoutEvent quals
+                                 )
                                     >> List.singleton
                                 )
                     )
-
-        Hangout xs ->
-            Random.list (Set.size xs) (distrnToQuality 2 1)
-                |> Random.andThen
-                    (\qualities ->
-                        let
-                            quals =
-                                List.Extra.zip (Set.toList xs) qualities
-                        in
-                        interactionAndQualitiesToResults int quals
-                            |> Random.map
-                                (HangoutEvent quals >> List.singleton)
-                    )
-
-        _ ->
-            Random.constant []
 
 
 interactionAndQualitiesToResults : Interaction -> List Experience -> Generator (List Result)
@@ -441,8 +573,29 @@ interactionAndQualitiesToResults int exps =
                                 , ( 20, expsToBondFormed id Bonds.InLove )
                                 ]
 
-                        _ ->
-                            Random.constant (Random.constant Nothing)
+                        Good ->
+                            Random.weighted ( 50, Random.constant Nothing )
+                                [ ( 20, expsToBondFormed id Bonds.Friend )
+                                , ( 10, expsToBondFormed id Bonds.Lustful )
+                                , ( 10, expsToBondFormed id Bonds.Admires )
+                                ]
+
+                        Average ->
+                            Random.weighted ( 80, Random.constant Nothing )
+                                [ ( 20, expsToBondFormed id Bonds.Admires ) ]
+
+                        Bad ->
+                            Random.weighted ( 60, Random.constant Nothing )
+                                [ ( 20, expsToBondFormed id Bonds.Enemy )
+                                , ( 20, expsToBondBroken id Bonds.Friend )
+                                ]
+
+                        Awful ->
+                            Random.weighted ( 30, Random.constant Nothing )
+                                [ ( 30, expsToBondFormed id Bonds.Enemy )
+                                , ( 30, expsToBondBroken id Bonds.InLove )
+                                , ( 30, expsToBondBroken id Bonds.Friend )
+                                ]
                 )
 
         Hangout _ ->
@@ -621,8 +774,19 @@ buildRecursiveInteraction bondsCompatible targBondFilter intBuilder infoGetter s
                                     target2 =
                                         Bonds.getBondId val
                                 in
-                                buildRecursiveInteraction bondsCompatible targBondFilter intBuilder infoGetter targetId target2 handled acc
-                                    |> Tuple.mapSecond (List.map (addMember sourceId))
+                                infoGetter target2
+                                    |> Maybe.andThen
+                                        (\t2 ->
+                                            if bondsCompatible source t2 then
+                                                Just
+                                                    (buildRecursiveInteraction bondsCompatible targBondFilter intBuilder infoGetter targetId target2 handled acc
+                                                        |> Tuple.mapSecond (List.map (addMember sourceId))
+                                                    )
+
+                                            else
+                                                Nothing
+                                        )
+                                    |> Maybe.withDefault ( handled, acc )
                             )
                             ( sourceId :: handledSources, initialInteraction :: existing )
             )

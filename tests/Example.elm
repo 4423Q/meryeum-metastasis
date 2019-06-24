@@ -1,6 +1,7 @@
 module Example exposing (defProns, suite)
 
 import Bonds
+import Debug
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, int, list, string)
 import Interactions
@@ -20,8 +21,8 @@ defProns =
 suite : Test
 suite =
     describe "Regression tests"
-        [ test "STOP COUSINS BEING ABLE TO GO ON DATES!!!!" <|
-            \_ ->
+        [ fuzz int "STOP COUSINS BEING ABLE TO GO ON DATES!!!!" <|
+            \input ->
                 let
                     students =
                         [ ( 1, [ Bonds.Relative Bonds.Cousin 2, Bonds.InLove 3 ] )
@@ -44,8 +45,52 @@ suite =
                                         , nickname = Nothing
                                         }
                                 )
+                            |> StudentBody.fromList
+
+                    generatorFunc =
+                        \by ->
+                            StudentBody.genWeeksInteractions by
+                                |> Random.andThen (StudentBody.processWeeksInteractions by)
+
+                    isbadDate =
+                        \y ->
+                            case y of
+                                Interactions.DateEvent xs _ ->
+                                    List.length xs == 3
+
+                                _ ->
+                                    False
                 in
-                StudentBody.fromList students
+                let
+                    stepper cond seed n gen =
+                        case
+                            n
+                        of
+                            0 ->
+                                Nothing
+
+                            _ ->
+                                Random.step gen seed
+                                    |> (\( ( ev, nBody ) as x, nSeed ) ->
+                                            if cond x then
+                                                Just x
+
+                                            else
+                                                stepper cond nSeed (n - 1) (generatorFunc nBody)
+                                       )
+
+                    cond2 =
+                        \( x, _ ) ->
+                            x
+                                |> List.any isbadDate
+                in
+                stepper cond2
+                    (Random.initialSeed input)
+                    10
+                    (generatorFunc students)
+                    |> Maybe.map Tuple.first
+                    |> Maybe.map (List.filter isbadDate)
+                    |> Expect.equal Nothing
         , test "Test case where students cannot be lustful for people with cousins" <|
             \_ ->
                 let

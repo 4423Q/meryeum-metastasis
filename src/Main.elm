@@ -159,7 +159,7 @@ update msg ({ events, body, editingNicks } as model) =
             ( { model | body = x }, Cmd.none )
 
         NewEvents ( x, y ) ->
-            case Debug.log "EVENTS" ( x, y ) of
+            case ( x, y ) of
                 _ ->
                     ( { model
                         | events = List.append x events
@@ -169,17 +169,17 @@ update msg ({ events, body, editingNicks } as model) =
                     )
 
         NewInteractions x ->
-            case Debug.log "Interactions" x of
+            case x of
                 _ ->
                     ( model, Cmd.none )
 
         GetInteractions b student ->
-            case Debug.log "interactions" (StudentBody.findInteractions student b) of
+            case StudentBody.findInteractions student b of
                 _ ->
                     ( model, Cmd.none )
 
         GetAllInteractions b ->
-            case Debug.log "ALLINTERACTIONS" (StudentBody.findAllInteractions b) of
+            case StudentBody.findAllInteractions b of
                 _ ->
                     ( model, Cmd.none )
 
@@ -342,6 +342,10 @@ bondToString source target bond =
             String.Extra.toSentenceCase sProns.subj ++ " " ++ Util.deplural sProns.subj "thinks" ++ " " ++ tName ++ " is like... really great."
 
 
+
+-- TODO Switch to rendering by bond to rendering by targeted students
+
+
 renderBond : Student.Student -> ( Bonds.Bond, Student.Student ) -> Html Msg
 renderBond studentSource ( bond, studentTarget ) =
     div []
@@ -451,9 +455,7 @@ resultsToString stdGetter results =
     in
     results
         |> List.Extra.gatherEqualsBy Interactions.getResultTarget
-        |> Debug.log "Gathered"
         |> List.map (\( x, y ) -> ( Interactions.getResultTarget x, x :: y ))
-        |> Debug.log "MappedResults"
         |> List.map
             (\( id, results2 ) ->
                 stdGetter id
@@ -461,10 +463,10 @@ resultsToString stdGetter results =
                         (\x ->
                             Student.getName x
                                 ++ " "
-                                ++ (Debug.log "Results2" results2
+                                ++ (results2
                                         |> List.map
                                             (\y ->
-                                                case Debug.log "y" y of
+                                                case y of
                                                     Interactions.BondsFormed _ xs ->
                                                         xs
                                                             |> List.map
@@ -477,7 +479,7 @@ resultsToString stdGetter results =
                                                                             sm i (\t -> "fell in love with " ++ gn t)
 
                                                                         Bonds.Lustful i ->
-                                                                            sm i (\t -> "stared at " ++ gn t ++ " for just a little too long")
+                                                                            sm i (\t -> "developed a crush on " ++ gn t)
 
                                                                         Bonds.Enemy i ->
                                                                             sm i (\t -> "got pissed off at " ++ gn t)
@@ -546,7 +548,6 @@ resultsToString stdGetter results =
                                                     _ ->
                                                         []
                                             )
-                                        |> Debug.log "Results"
                                         |> List.map Util.removeNothings
                                         |> List.concat
                                         |> Util.commasAnd

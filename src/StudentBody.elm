@@ -126,7 +126,6 @@ applyResults : StudentBody -> List Interactions.Result -> StudentBody
 applyResults originalBody results =
     results
         |> List.concatMap Interactions.resultImpliesResults
-        |> Debug.log "RESULTS TO APPLY"
         |> List.foldr
             (\result newBody ->
                 let
